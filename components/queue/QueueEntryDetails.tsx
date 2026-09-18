@@ -1,0 +1,173 @@
+"use client";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import {
+  formatWaitMinutes,
+  queueEntryStatusLabel,
+  queueEntryStatusTone,
+  queueTableLabel,
+} from "@/lib/utils/queue";
+import { queueActionsForStatus } from "@/lib/queue/transitions";
+import {
+  formatDate,
+  formatTime,
+  type DateFormat,
+  type TimeFormat,
+} from "@/lib/utils/datetime";
+import type { QueueEntryView } from "@/services/queues";
+
+type QueueEntryDetailsProps = {
+  entry: QueueEntryView | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  timezone: string;
+  dateFormat: DateFormat;
+  timeFormat: TimeFormat;
+  canManage: boolean;
+  pending: boolean;
+  onCall: () => void;
+  onSkip: () => void;
+  onCancel: () => void;
+  onSeat: () => void;
+  onNoShow: () => void;
+  onComplete: () => void;
+};
+
+function stamp(
+  value: string | null,
+  timezone: string,
+  dateFormat: DateFormat,
+  timeFormat: TimeFormat,
+): string {
+  if (!value) return "—";
+  const instant = new Date(value);
+  return `${formatDate(instant, dateFormat, timezone)} ${formatTime(instant, timeFormat, timezone)}`;
+}
+
+export function QueueEntryDetails({
+  entry,
+  open,
+  onOpenChange,
+  timezone,
+  dateFormat,
+  timeFormat,
+  canManage,
+  pending,
+  onCall,
+  onSkip,
+  onCancel,
+  onSeat,
+  onNoShow,
+  onComplete,
+}: QueueEntryDetailsProps) {
+  const actions = entry ? queueActionsForStatus(entry.status) : null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="font-mono text-2xl">
+            {entry?.token ?? "Queue entry"}
+          </DialogTitle>
+          <DialogDescription>
+            {entry?.customer?.name ?? "Guest"} · party of{" "}
+            {entry?.party_size ?? "—"}
+          </DialogDescription>
+        </DialogHeader>
+        {entry ? (
+          <div className="space-y-4">
+            <StatusBadge
+              label={queueEntryStatusLabel(entry.status)}
+              tone={queueEntryStatusTone(entry.status)}
+            />
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Position</dt>
+                <dd>{entry.position ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Estimated wait</dt>
+                <dd>{formatWaitMinutes(entry.estimatedWaitMinutes)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Joined</dt>
+                <dd>
+                  {stamp(entry.joined_at, timezone, dateFormat, timeFormat)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Called</dt>
+                <dd>
+                  {stamp(entry.called_at, timezone, dateFormat, timeFormat)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Seated</dt>
+                <dd>
+                  {stamp(entry.seated_at, timezone, dateFormat, timeFormat)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Completed</dt>
+                <dd>
+                  {stamp(entry.completed_at, timezone, dateFormat, timeFormat)}
+                </dd>
+              </div>
+              <div className="col-span-2">
+                <dt className="text-muted-foreground">Table</dt>
+                <dd>{queueTableLabel(entry.table) ?? "Not assigned"}</dd>
+              </div>
+            </dl>
+          </div>
+        ) : null}
+        {canManage && actions ? (
+          <DialogFooter className="flex-wrap">
+            {actions.canCall ? (
+              <Button disabled={pending} onClick={onCall}>
+                Call
+              </Button>
+            ) : null}
+            {actions.canSeat ? (
+              <Button disabled={pending} onClick={onSeat}>
+                Seat
+              </Button>
+            ) : null}
+            {actions.canComplete ? (
+              <Button disabled={pending} onClick={onComplete}>
+                Complete
+              </Button>
+            ) : null}
+            {actions.canSkip ? (
+              <Button variant="outline" disabled={pending} onClick={onSkip}>
+                Skip
+              </Button>
+            ) : null}
+            {actions.canNoShow ? (
+              <Button variant="outline" disabled={pending} onClick={onNoShow}>
+                No show
+              </Button>
+            ) : null}
+            {actions.canCancel ? (
+              <Button
+                variant="destructive"
+                disabled={pending}
+                onClick={onCancel}
+              >
+                Cancel
+              </Button>
+            ) : null}
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}

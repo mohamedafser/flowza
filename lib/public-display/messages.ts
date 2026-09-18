@@ -1,0 +1,18 @@
+export const PUBLIC_DISPLAY_MESSAGES = {
+  unavailable: "Display unavailable",
+  contactStaff: "Please contact restaurant staff.",
+  inactive: "This display is currently inactive.",
+  queueUnavailable: "Queue is unavailable for this display.",
+  notFound: "Display unavailable",
+  unexpected: "Unable to load display. Please try again.",
+  rateLimited: "Too many requests. Please wait a moment and try again.",
+  loading: "Loading queue…",
+  nowServing: "Now Serving",
+  nextInLine: "Next in Line",
+  noWaiting: "No customers waiting",
+  pleaseProceed: "Please proceed",
+  emptyServing: "—",
+  reconnecting: "Live updates reconnecting…",
+  fullscreen: "Enter Fullscreen",
+  exitFullscreen: "Exit Fullscreen",
+} as const;

@@ -1,0 +1,5 @@
+/**
+ * Service layer placeholders.
+ * Future flow: Route Handler → Validation → Service → Supabase → PostgreSQL
+ */
+export {};
