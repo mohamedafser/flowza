@@ -21,7 +21,7 @@ function record(
   return {
     restaurant_id: restaurantA,
     name: "Ada",
-    phone: "+15550102030",
+    phone: "+14155552671",
     email: "ada@example.com",
     created_at: "2026-09-18T10:00:00.000Z",
     updated_at: "2026-09-18T10:00:00.000Z",
@@ -33,13 +33,13 @@ describe("customer create and update operations", () => {
   it("creates a normalized payload without a client restaurant id", () => {
     const parsed = createCustomerSchema.parse({
       name: "  Ada Lovelace ",
-      phone: "+1 (555) 010-2030",
+      phone: "+1 415 555 2671",
       email: "Ada@Example.com",
       restaurantId: restaurantB,
     });
     expect(parsed).toEqual({
       name: "Ada Lovelace",
-      phone: "+15550102030",
+      phone: "+14155552671",
       email: "ada@example.com",
     });
   });
@@ -48,12 +48,12 @@ describe("customer create and update operations", () => {
     const parsed = updateCustomerSchema.parse({
       customerId: customerA,
       name: "Ada",
-      phone: "",
+      phone: "+14155552671",
       email: "ada@example.com",
       restaurantId: restaurantB,
     });
     expect(parsed.customerId).toBe(customerA);
-    expect(parsed.phone).toBeNull();
+    expect(parsed.phone).toBe("+14155552671");
     expect("restaurantId" in parsed).toBe(false);
   });
 
@@ -83,7 +83,7 @@ describe("duplicate detection during write", () => {
   it("blocks creating a customer with the same phone", () => {
     expect(
       findDuplicateCustomer(existing, {
-        phone: "+1 555 010 2030",
+        phone: "+1 415 555 2671",
         email: null,
       })?.id,
     ).toBe(customerA);
@@ -102,23 +102,23 @@ describe("duplicate detection during write", () => {
     expect(
       findDuplicateCustomer(
         existing,
-        { phone: "+15550102030", email: "ada@example.com" },
+        { phone: "+14155552671", email: "ada@example.com" },
         customerA,
       ),
     ).toBeNull();
   });
 
-  it("exposes a safe duplicate summary without extra PII", () => {
+  it("exposes a duplicate summary with display phone", () => {
     const duplicate = serviceMatchIncomingDuplicate(existing[0]!, {
-      phone: "+15550102030",
+      phone: "+14155552671",
       email: null,
     });
     expect(duplicate).toEqual({
       id: customerA,
       name: "Ada",
+      phone: "+14155552671",
       match: "phone",
     });
-    expect(duplicate).not.toHaveProperty("phone");
     expect(duplicate).not.toHaveProperty("email");
   });
 });

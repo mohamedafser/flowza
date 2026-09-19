@@ -39,7 +39,6 @@ function membership(
       website: null,
       description: null,
       timezone: "UTC",
-      currency: "USD",
       status: "ACTIVE",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -77,24 +76,21 @@ describe("restaurant validation", () => {
       phone: "+1 555 0100",
       website: "harbor.test",
       description: "Seafood",
-      currency: "USD",
       timezone: "UTC",
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.currency).toBe("USD");
       expect(parsed.data.website).toBe("harbor.test");
     }
   });
 
-  it("rejects invalid email and currency", () => {
+  it("rejects invalid email and timezone", () => {
     const parsed = restaurantOnboardingSchema.safeParse({
       name: "X",
       email: "not-an-email",
       phone: "123",
       website: "",
       description: "",
-      currency: "XX",
       timezone: "Not/AZone",
     });
     expect(parsed.success).toBe(false);
@@ -108,7 +104,6 @@ describe("restaurant validation", () => {
       phone: "+15550100",
       website: "",
       description: "",
-      currency: "USD",
       timezone: "UTC",
     });
     expect(parsed.success).toBe(false);

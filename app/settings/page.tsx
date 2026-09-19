@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import {
+  Bell,
+  Building2,
+  Clock3,
+  LayoutGrid,
+  ListOrdered,
+  Settings2,
+  Users,
+} from "lucide-react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -11,6 +20,7 @@ import {
   SETTINGS_CUSTOMER_PATH,
   SETTINGS_GENERAL_PATH,
   SETTINGS_HOURS_PATH,
+  SETTINGS_NOTIFICATIONS_PATH,
   SETTINGS_QUEUE_PATH,
   SETTINGS_TABLES_PATH,
 } from "@/lib/auth/paths";
@@ -50,6 +60,7 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_GENERAL_PATH} />}
               nativeButton={false}
             >
+              <Settings2 />
               General
             </Button>
             <Button
@@ -57,6 +68,7 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_BRANCHES_PATH} />}
               nativeButton={false}
             >
+              <Building2 />
               Branches
             </Button>
             <Button
@@ -64,6 +76,7 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_HOURS_PATH} />}
               nativeButton={false}
             >
+              <Clock3 />
               Operating hours
             </Button>
             <Button
@@ -71,6 +84,7 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_TABLES_PATH} />}
               nativeButton={false}
             >
+              <LayoutGrid />
               Table sections
             </Button>
             <Button
@@ -78,6 +92,7 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_QUEUE_PATH} />}
               nativeButton={false}
             >
+              <ListOrdered />
               Queue
             </Button>
             <Button
@@ -85,7 +100,16 @@ export default async function SettingsPage() {
               render={<Link href={SETTINGS_CUSTOMER_PATH} />}
               nativeButton={false}
             >
+              <Users />
               Customer experience
+            </Button>
+            <Button
+              variant="outline"
+              render={<Link href={SETTINGS_NOTIFICATIONS_PATH} />}
+              nativeButton={false}
+            >
+              <Bell />
+              Notifications
             </Button>
           </div>
           {canManageRestaurant ? null : (

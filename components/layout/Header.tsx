@@ -4,6 +4,7 @@ import { ConnectionIndicator } from "@/components/common/ConnectionIndicator";
 import { InstallPWA } from "@/components/common/InstallPWA";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LogoutButton } from "@/components/auth/LogoutButton";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { BranchSwitcher } from "@/components/restaurant/BranchSwitcher";
 import { RestaurantSwitcher } from "@/components/restaurant/RestaurantSwitcher";
 import type { RestaurantWorkspace } from "@/lib/context/restaurant";
@@ -15,8 +16,8 @@ type HeaderProps = {
 
 export function Header({ title, workspace = null }: HeaderProps) {
   return (
-    <header className="border-border bg-background/90 supports-backdrop-filter:bg-background/75 sticky top-0 z-30 flex h-14 items-center gap-2 border-b px-4 backdrop-blur sm:gap-3">
-      <MobileNav />
+    <header className="border-border bg-background/90 supports-backdrop-filter:bg-background/75 z-30 flex h-14 shrink-0 items-center gap-2 border-b px-4 backdrop-blur sm:gap-3">
+      <MobileNav role={workspace?.role ?? null} />
       <div className="min-w-0 lg:hidden">
         <AppLogo />
       </div>
@@ -39,6 +40,9 @@ export function Header({ title, workspace = null }: HeaderProps) {
       ) : null}
       <div className="ml-auto flex items-center gap-2">
         <ConnectionIndicator />
+        {workspace?.restaurant ? (
+          <NotificationBell restaurantId={workspace.restaurant.id} />
+        ) : null}
         <ThemeToggle />
         <InstallPWA compact />
         {workspace ? (

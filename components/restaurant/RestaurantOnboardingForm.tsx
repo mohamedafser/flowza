@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  CURRENCIES,
   TIMEZONES,
   restaurantFormSchema,
   type RestaurantFormValues,
@@ -60,7 +59,6 @@ export function RestaurantOnboardingForm({
       phone: "",
       website: "",
       description: "",
-      currency: "USD",
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
     },
   });
@@ -170,47 +168,25 @@ export function RestaurantOnboardingForm({
         ) : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="currency">Currency</Label>
-          <Select
-            id="currency"
-            disabled={pending}
-            aria-invalid={Boolean(form.formState.errors.currency)}
-            {...form.register("currency")}
-          >
-            {CURRENCIES.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </Select>
-          {form.formState.errors.currency ? (
-            <p className="text-destructive text-xs">
-              {form.formState.errors.currency.message}
-            </p>
-          ) : null}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="timezone">Timezone</Label>
-          <Select
-            id="timezone"
-            disabled={pending}
-            aria-invalid={Boolean(form.formState.errors.timezone)}
-            {...form.register("timezone")}
-          >
-            {zones.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone}
-              </option>
-            ))}
-          </Select>
-          {form.formState.errors.timezone ? (
-            <p className="text-destructive text-xs">
-              {form.formState.errors.timezone.message}
-            </p>
-          ) : null}
-        </div>
+      <div className="space-y-2">
+        <Label htmlFor="timezone">Timezone</Label>
+        <Select
+          id="timezone"
+          disabled={pending}
+          aria-invalid={Boolean(form.formState.errors.timezone)}
+          {...form.register("timezone")}
+        >
+          {zones.map((zone) => (
+            <option key={zone} value={zone}>
+              {zone}
+            </option>
+          ))}
+        </Select>
+        {form.formState.errors.timezone ? (
+          <p className="text-destructive text-xs">
+            {form.formState.errors.timezone.message}
+          </p>
+        ) : null}
       </div>
 
       <Button type="submit" className="w-full sm:w-auto" disabled={pending}>

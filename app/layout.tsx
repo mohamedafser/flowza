@@ -65,7 +65,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       suppressHydrationWarning
     >
       <body
-        className="bg-background text-foreground flex min-h-full flex-col overflow-x-hidden"
+        className="bg-background text-foreground min-h-full"
         suppressHydrationWarning
       >
         <AppProviders>{children}</AppProviders>

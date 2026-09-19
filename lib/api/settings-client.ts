@@ -51,3 +51,18 @@ export async function updateCustomerExperienceRequest(
   );
   return parseJsonResult(response);
 }
+
+export async function updateNotificationSettingsRequest(
+  restaurantId: string,
+  values: import("@/lib/validations/notifications").NotificationSettingsValues,
+): Promise<ActionResult<{ settings: RestaurantSettings }>> {
+  const response = await fetch(
+    `/api/restaurants/${restaurantId}/settings/notifications`,
+    {
+      method: "PATCH",
+      headers: JSON_HEADERS,
+      body: JSON.stringify(values),
+    },
+  );
+  return parseJsonResult(response);
+}

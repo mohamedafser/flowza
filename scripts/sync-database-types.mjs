@@ -49,6 +49,8 @@ export const DATABASE_TABLES = [
   "qr_codes",
   "reservations",
   "notifications",
+  "notification_reads",
+  "customer_notification_preferences",
   "subscriptions",
   "audit_logs",
   "restaurant_settings",

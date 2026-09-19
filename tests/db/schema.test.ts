@@ -21,6 +21,10 @@ describe("Phase 2 database foundation", () => {
     expect(files.some((f) => f.includes("public_queue_experience"))).toBe(true);
     expect(files.some((f) => f.includes("realtime_infrastructure"))).toBe(true);
     expect(files.some((f) => f.includes("tv_display"))).toBe(true);
+    expect(files.some((f) => f.includes("notifications_infrastructure"))).toBe(
+      true,
+    );
+    expect(files.some((f) => f.includes("dashboard_analytics"))).toBe(true);
   });
 
   it("includes development seed data without customer PII tables", () => {
@@ -49,6 +53,8 @@ describe("Phase 2 database foundation", () => {
       "qr_codes",
       "reservations",
       "notifications",
+      "notification_reads",
+      "customer_notification_preferences",
       "subscriptions",
       "audit_logs",
       "restaurant_settings",
@@ -59,7 +65,7 @@ describe("Phase 2 database foundation", () => {
 
     type PublicTables = keyof Database["public"]["Tables"];
     const _assert: PublicTables[] = [...DATABASE_TABLES];
-    expect(_assert.length).toBe(20);
+    expect(_assert.length).toBe(22);
   });
 
   it("enables RLS in the policies migration", () => {

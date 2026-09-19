@@ -1,21 +1,23 @@
 /**
- * International phone helpers for restaurant customer records.
- * Does not assume a home country — never injects a default calling code.
+ * International phone helpers backed by libphonenumber-js.
+ * Stored values are E.164 (e.g. +919876543210).
  */
 
-const PHONE_MAX_DIGITS = 15;
-const PHONE_MIN_DIGITS = 7;
+import {
+  parsePhoneNumberFromString,
+  isValidPhoneNumber,
+  type CountryCode,
+} from "libphonenumber-js";
 
-export function digitsOnly(value: string): string {
-  return value.replace(/\D/g, "");
-}
+export const DEFAULT_PHONE_COUNTRY: CountryCode = "IN";
 
 /**
- * Trim and strip common separators while preserving a leading country-code +.
- * Returns null for blank input. Does not invent or drop a country code.
+ * Normalize to E.164. Returns null for blank input.
+ * Accepts national numbers when a default country is provided.
  */
 export function normalizePhone(
   value: string | null | undefined,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY,
 ): string | null {
   if (value == null) {
     return null;
@@ -26,34 +28,51 @@ export function normalizePhone(
     return null;
   }
 
+  const parsed = parsePhoneNumberFromString(trimmed, defaultCountry);
+  if (parsed?.number) {
+    return parsed.number;
+  }
+
+  // Fallback: keep leading + and digits only when the library cannot parse.
   const hasPlus = trimmed.startsWith("+");
   const digits = digitsOnly(trimmed);
   if (!digits) {
     return null;
   }
-
-  return hasPlus ? `+${digits}` : digits;
+  return hasPlus ? `+${digits}` : null;
 }
 
 export function isValidNormalizedPhone(value: string): boolean {
-  if (value.startsWith("+")) {
-    return /^\+[1-9]\d{6,14}$/.test(value);
-  }
-  return /^\d{7,15}$/.test(value);
+  return isValidPhoneNumber(value);
 }
 
-export function isValidPhoneInput(value: string): boolean {
-  const normalized = normalizePhone(value);
-  return normalized !== null && isValidNormalizedPhone(normalized);
+export function isValidPhoneInput(
+  value: string,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY,
+): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return false;
+  }
+  if (isValidPhoneNumber(trimmed, defaultCountry)) {
+    return true;
+  }
+  const normalized = normalizePhone(trimmed, defaultCountry);
+  return normalized !== null && isValidPhoneNumber(normalized);
 }
 
 export function phonesMatch(
   left: string | null | undefined,
   right: string | null | undefined,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY,
 ): boolean {
-  const a = normalizePhone(left);
-  const b = normalizePhone(right);
+  const a = normalizePhone(left, defaultCountry);
+  const b = normalizePhone(right, defaultCountry);
   return a !== null && b !== null && a === b;
+}
+
+export function digitsOnly(value: string): string {
+  return value.replace(/\D/g, "");
 }
 
 export function phoneSearchDigits(value: string | null | undefined): string {
@@ -63,4 +82,16 @@ export function phoneSearchDigits(value: string | null | undefined): string {
   return digitsOnly(value);
 }
 
-export { PHONE_MAX_DIGITS, PHONE_MIN_DIGITS };
+export function formatPhoneDisplay(
+  value: string | null | undefined,
+  defaultCountry: CountryCode = DEFAULT_PHONE_COUNTRY,
+): string {
+  if (!value) {
+    return "";
+  }
+  const parsed = parsePhoneNumberFromString(value, defaultCountry);
+  if (parsed) {
+    return parsed.formatInternational();
+  }
+  return value;
+}

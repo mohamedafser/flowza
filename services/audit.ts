@@ -8,6 +8,7 @@ export type AuditAction =
   | "restaurant.settings_updated"
   | "restaurant.queue_settings_updated"
   | "restaurant.customer_settings_updated"
+  | "restaurant.notification_settings_updated"
   | "branch.created"
   | "branch.updated"
   | "branch.activated"
@@ -48,7 +49,20 @@ export type AuditAction =
   | "qr_code.updated"
   | "qr_code.activated"
   | "qr_code.deactivated"
-  | "qr_code.token_regenerated";
+  | "qr_code.token_regenerated"
+  | "reservation.created"
+  | "reservation.updated"
+  | "reservation.confirmed"
+  | "reservation.cancelled"
+  | "reservation.arrived"
+  | "reservation.seated"
+  | "reservation.completed"
+  | "reservation.no_show"
+  | "reservation.table_assigned"
+  | "reservation.converted_to_queue"
+  | "walk_in.created"
+  | "walk_in.seated"
+  | "analytics.exported";
 
 export type WriteAuditLogInput = {
   restaurantId: string;
@@ -66,7 +80,8 @@ export type WriteAuditLogInput = {
     | "queue"
     | "queue_entry"
     | "display"
-    | "qr_code";
+    | "qr_code"
+    | "reservation";
   entityId: string;
   metadata?: Record<string, Json | undefined>;
 };

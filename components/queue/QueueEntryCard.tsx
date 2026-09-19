@@ -1,5 +1,13 @@
 "use client";
 
+import {
+  Ban,
+  CheckCircle2,
+  Megaphone,
+  SkipForward,
+  UserX,
+  Utensils,
+} from "lucide-react";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,10 +53,10 @@ export function QueueEntryCard({
   const joined = formatTime(new Date(entry.joined_at), timeFormat, timezone);
 
   return (
-    <article className="border-border bg-card rounded-xl border p-4 shadow-xs">
-      <div className="flex items-start justify-between gap-3">
+    <article className="border-border bg-card min-w-0 rounded-xl border p-3 shadow-xs sm:p-4">
+      <div className="flex items-start justify-between gap-2 sm:gap-3">
         <button type="button" className="min-w-0 text-left" onClick={onOpen}>
-          <p className="font-mono text-2xl font-semibold tracking-tight">
+          <p className="font-mono text-xl font-semibold tracking-tight sm:text-2xl">
             {entry.token}
           </p>
           <p className="truncate text-sm font-medium">
@@ -60,7 +68,7 @@ export function QueueEntryCard({
           tone={queueEntryStatusTone(entry.status)}
         />
       </div>
-      <dl className="text-muted-foreground mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs sm:grid-cols-4">
+      <dl className="text-muted-foreground mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs sm:grid-cols-4">
         <div>
           <dt>Party</dt>
           <dd className="text-foreground">{entry.party_size}</dd>
@@ -86,19 +94,22 @@ export function QueueEntryCard({
         </p>
       ) : null}
       {canManage ? (
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
           {actions.canCall ? (
             <Button size="sm" disabled={pending} onClick={onCall}>
+              <Megaphone />
               Call
             </Button>
           ) : null}
           {actions.canSeat ? (
             <Button size="sm" disabled={pending} onClick={onSeat}>
+              <Utensils />
               Seat
             </Button>
           ) : null}
           {actions.canComplete ? (
             <Button size="sm" disabled={pending} onClick={onComplete}>
+              <CheckCircle2 />
               Complete
             </Button>
           ) : null}
@@ -108,8 +119,10 @@ export function QueueEntryCard({
               variant="outline"
               disabled={pending}
               onClick={onSkip}
+              aria-label="Skip"
             >
-              Skip
+              <SkipForward />
+              <span className="hidden min-[400px]:inline">Skip</span>
             </Button>
           ) : null}
           {actions.canNoShow ? (
@@ -118,8 +131,10 @@ export function QueueEntryCard({
               variant="outline"
               disabled={pending}
               onClick={onNoShow}
+              aria-label="No show"
             >
-              No show
+              <UserX />
+              <span className="hidden min-[400px]:inline">No show</span>
             </Button>
           ) : null}
           {actions.canCancel ? (
@@ -128,8 +143,10 @@ export function QueueEntryCard({
               variant="destructive"
               disabled={pending}
               onClick={onCancel}
+              aria-label="Cancel"
             >
-              Cancel
+              <Ban />
+              <span className="hidden min-[400px]:inline">Cancel</span>
             </Button>
           ) : null}
         </div>

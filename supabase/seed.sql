@@ -9,7 +9,6 @@ INSERT INTO public.restaurants (
   phone,
   description,
   timezone,
-  currency,
   status
 )
 VALUES (
@@ -20,7 +19,6 @@ VALUES (
   '+10000000000',
   'Local development restaurant for Flowza Phase 2.',
   'UTC',
-  'USD',
   'ACTIVE'
 )
 ON CONFLICT (id) DO NOTHING;

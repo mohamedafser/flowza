@@ -2,7 +2,7 @@
 
 Restaurant queue management SaaS — **Simplify the flow of your business.**
 
-Phase 1 established the app/PWA foundation. Phase 2 adds the multi-tenant Supabase PostgreSQL schema, migrations, RLS foundation, seed data, and typed clients. Phase 3 adds Supabase Authentication, email verification, password reset, protected routes, and RBAC permission utilities. Phase 4 adds restaurant onboarding, restaurant/branch settings, logo storage, and restaurant/branch context switching. Phase 5 adds restaurant general settings, queue/customer configuration, operating hours, special dates, and reusable currency/date utilities. Phase 6 adds table and seating management (create/edit/delete tables, sections, status, visual layout). Phase 7 adds restaurant-level customer records (search, filters, create/edit, duplicate detection, statistics). Phase 8 adds the staff queue engine (tokens, call next, seating, completion, ETA). Phase 9 adds the anonymous customer-facing queue (join, token, status, cancel). Phase 10 adds Supabase Realtime for staff queue, customer status, and table screens. Phase 11 adds TV / lobby public displays. Phase 12 adds printable QR codes that open the Phase 9 join experience. Reservations, notifications, analytics, and billing remain deferred.
+Phase 1 established the app/PWA foundation. Phase 2 adds the multi-tenant Supabase PostgreSQL schema, migrations, RLS foundation, seed data, and typed clients. Phase 3 adds Supabase Authentication, email verification, password reset, protected routes, and RBAC permission utilities. Phase 4 adds restaurant onboarding, restaurant/branch settings, logo storage, and restaurant/branch context switching. Phase 5 adds restaurant general settings, queue/customer configuration, operating hours, special dates, and reusable date utilities. Phase 6 adds table and seating management (create/edit/delete tables, sections, status, visual layout). Phase 7 adds restaurant-level customer records (search, filters, create/edit, duplicate detection, statistics). Phase 8 adds the staff queue engine (tokens, call next, seating, completion, ETA). Phase 9 adds the anonymous customer-facing queue (join, token, status, cancel). Phase 10 adds Supabase Realtime for staff queue, customer status, and table screens. Phase 11 adds TV / lobby public displays. Phase 12 adds printable QR codes that open the Phase 9 join experience. Phase 13 adds notification infrastructure (in-app, email, WhatsApp, SMS abstractions, preferences, templates, deduplication). Reservations, analytics, and billing remain deferred.
 
 ## Tech stack
 
@@ -162,12 +162,12 @@ Verified users without a restaurant membership are redirected to `/onboarding/re
 
 ## Restaurant settings & hours (Phase 5)
 
-- General: `/settings/general` (name, contact, currency, timezone, language, date/time formats, logo)
+- General: `/settings/general` (name, contact, timezone, date/time formats, logo)
 - Operating hours: `/settings/hours` — weekly periods, branch overrides, special dates
 - Queue defaults: `/settings/queue` (configuration only; no live queue yet)
 - Customer experience: `/settings/customer` (configuration only)
 - Tables: `restaurant_settings`, `operating_hours`, `operating_periods`, `special_hours`
-- Utilities: `lib/utils/currency.ts`, `lib/utils/datetime.ts`, `lib/utils/hours.ts`
+- Utilities: `lib/utils/datetime.ts`, `lib/utils/hours.ts`
 - Authorization: `restaurant.manage` to edit; members can view
 - PWA: settings and hours remain NetworkOnly (never cached as live data)
 
@@ -241,12 +241,13 @@ Local emails appear in Inbucket at `http://127.0.0.1:54324` when using `npm run 
 - `/dashboard` → redirects to `/dashboard/overview`
 - `/dashboard/overview` — static placeholder stats
 - `/settings` — account + restaurant/branch shortcuts + appearance
-- `/settings/general` — restaurant identity, locale, currency, timezone, logo
+- `/settings/general` — restaurant identity, timezone, date/time formats, logo
 - `/settings/restaurant` — redirects to `/settings/general`
 - `/settings/branches` — branch list and management
 - `/settings/hours` — weekly operating hours, branch overrides, special dates
 - `/settings/queue` — queue configuration defaults
 - `/settings/customer` — customer experience preferences
+- `/settings/notifications` — notification channels and defaults
 - `/dashboard/tables` — table and seating management
 - `/settings/tables` — table section management
 - `/dashboard/customers` — customer records
@@ -383,6 +384,47 @@ Customer joins → Phase 8 engine → secure status page (Phase 10 realtime)
 7. Regenerate the token and confirm the old printed URL stops working.
 
 Do not log or document real production tokens.
+
+## Notifications (Phase 13)
+
+Queue and staff notifications run through a provider-agnostic service. Queue mutations stay non-blocking; delivery failures never break join/call/seat flows.
+
+### Architecture
+
+```text
+Queue event → sendNotification / notifyQueue*
+    → preferences + restaurant settings
+    → template
+    → notification_enqueue (idempotent)
+    → notification_claim
+    → dispatcher → email | whatsapp | sms | in-app
+    → notification_mark_delivery
+```
+
+- Core: `lib/notifications/` (`service`, `dispatcher`, `templates`, `providers/*`)
+- Queue hooks: `lib/notifications/queue.ts` (joined / called / cancelled / no-show / seated)
+- Staff UI: header `NotificationBell` + `/api/notifications`
+- Settings: `/settings/notifications` (channels + customer/staff defaults)
+- DB: extended `notifications`, `notification_reads`, `customer_notification_preferences`
+
+### Channels & providers
+
+| Channel  | Provider abstraction | Enabled when |
+| -------- | --------------------- | ------------ |
+| IN_APP   | Record + staff bell   | Restaurant setting on (default) |
+| EMAIL    | Resend HTTP API       | `RESEND_API_KEY` + `RESEND_FROM_EMAIL` + setting |
+| WHATSAPP | Meta Cloud API        | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` + setting |
+| SMS      | Generic HTTP endpoint | `SMS_PROVIDER_API_KEY` + `SMS_PROVIDER_ENDPOINT` + setting |
+
+Never put provider secrets in `NEXT_PUBLIC_*`. Use `SUPABASE_SERVICE_ROLE_KEY` on the server so public join/cancel can enqueue notifications under RLS.
+
+### Deduplication
+
+Idempotency key: `queue_entry_id:type:channel:eventVersion` with a unique DB constraint. Concurrent retries claim with `notification_claim` so providers are not called twice.
+
+### PWA
+
+`/api/notifications` and authenticated settings remain NetworkOnly (never cached).
 
 ## Architecture direction
 

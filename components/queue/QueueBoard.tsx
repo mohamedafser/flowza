@@ -13,12 +13,18 @@ import Link from "next/link";
 import { toast } from "sonner";
 import {
   Ban,
+  CheckCircle2,
+  History,
+  ListOrdered,
+  Megaphone,
   Pause,
   Play,
   Plus,
   RefreshCw,
   Settings2,
+  UserX,
   Users,
+  Utensils,
 } from "lucide-react";
 import {
   callNextQueueEntryAction,
@@ -56,6 +62,7 @@ import { queueActionsForStatus } from "@/lib/queue/transitions";
 import { createCoalescedRefresh } from "@/lib/realtime/refresh";
 import { REALTIME_MESSAGES } from "@/lib/realtime/messages";
 import { REALTIME_REFRESH_DEBOUNCE_MS } from "@/lib/realtime/types";
+import { PUBLIC_QUEUE_FALLBACK_INTERVAL_MS } from "@/lib/public-queue/paths";
 import { useQueueRealtime } from "@/hooks/realtime/use-queue-realtime";
 import { formatTime } from "@/lib/utils/datetime";
 import {
@@ -71,6 +78,7 @@ import {
 } from "@/lib/utils/queue";
 import type {
   AddCustomerFormValues,
+  AddCustomerToQueueInput,
   QueueFormValues,
 } from "@/lib/validations/queue";
 import { toCustomerWritePayload } from "@/lib/validations/customer";
@@ -146,6 +154,29 @@ export function QueueBoard({
       refreshController.current?.request();
     },
   });
+
+  useEffect(() => {
+    if (!queue?.id || realtimeStatus === "connected") return;
+
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const loop = () => {
+      timer = setTimeout(() => {
+        if (cancelled) return;
+        if (document.visibilityState === "visible") {
+          refreshController.current?.request();
+        }
+        if (!cancelled) loop();
+      }, PUBLIC_QUEUE_FALLBACK_INTERVAL_MS);
+    };
+
+    loop();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [queue?.id, realtimeStatus]);
 
   const waiting = useMemo(
     () => sortWaitingEntries(bundle.entries),
@@ -229,15 +260,8 @@ export function QueueBoard({
 
   async function handleAdd(values: AddCustomerFormValues) {
     if (!queue) return;
-    let payload: {
-      queueId: string;
-      partySize: number;
-      customerId?: string;
-      name?: string;
-      phone?: string | null;
-      email?: string | null;
-    };
-    if (values.mode === "existing") {
+    let payload: AddCustomerToQueueInput;
+    if (values.customerId) {
       payload = {
         queueId: queue.id,
         partySize: values.partySize,
@@ -255,7 +279,7 @@ export function QueueBoard({
           }),
         };
       } catch {
-        toast.error("Enter a valid name, phone, or email.");
+        toast.error("Enter a valid name and phone number.");
         return;
       }
     }
@@ -370,82 +394,138 @@ export function QueueBoard({
   }
 
   const headerActions = (
-    <div className="flex flex-wrap items-center gap-2">
-      {queue ? <RealtimeStatusIndicator status={realtimeStatus} /> : null}
+    <div className="flex w-full flex-col gap-2 sm:w-auto">
       {queue ? (
-        <Button variant="outline" disabled={pending} onClick={() => refresh()}>
-          <RefreshCw />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <RealtimeStatusIndicator
+            status={realtimeStatus}
+            className="mr-auto sm:mr-0"
+          />
+          <Button
+            variant="outline"
+            size="icon-sm"
+            className="sm:hidden"
+            disabled={pending}
+            onClick={() => refresh()}
+            aria-label="Refresh queue"
+          >
+            <RefreshCw />
+          </Button>
+          <Button
+            variant="outline"
+            className="hidden sm:inline-flex"
+            disabled={pending}
+            onClick={() => refresh()}
+          >
+            <RefreshCw />
+            Refresh
+          </Button>
+          {canConfigure ? (
+            <>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="sm:hidden"
+                onClick={() => setSettingsOpen(true)}
+                disabled={pending}
+                aria-label="Queue settings"
+              >
+                <Settings2 />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex"
+                onClick={() => setSettingsOpen(true)}
+                disabled={pending}
+              >
+                <Settings2 />
+                Queue settings
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="sm:hidden"
+                render={<Link href={SETTINGS_QUEUE_PATH} />}
+                aria-label="Queue settings"
+              >
+                <Settings2 />
+              </Button>
+              <Button
+                variant="outline"
+                className="hidden sm:inline-flex"
+                render={<Link href={SETTINGS_QUEUE_PATH} />}
+              >
+                <Settings2 />
+                Queue settings
+              </Button>
+            </>
+          )}
+        </div>
       ) : null}
+
       {canManage && queue ? (
-        <Button
-          onClick={() => setAddOpen(true)}
-          disabled={pending || !accepting || !bundle.defaults.allowManualEntry}
-        >
-          <Plus />
-          Add customer
-        </Button>
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <Button
+            className="col-span-2 sm:col-auto"
+            onClick={() => setAddOpen(true)}
+            disabled={
+              pending || !accepting || !bundle.defaults.allowManualEntry
+            }
+          >
+            <Plus />
+            Add customer
+          </Button>
+          {waiting.length > 0 ? (
+            <Button
+              variant="secondary"
+              className="col-span-2 sm:col-auto"
+              disabled={pending}
+              onClick={() => run(handleCallNext)}
+            >
+              <Megaphone />
+              Call next
+            </Button>
+          ) : null}
+          {queue.status === "ACTIVE" ? (
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => setConfirm({ kind: "pause" })}
+            >
+              <Pause />
+              Pause
+            </Button>
+          ) : null}
+          {queue.status === "PAUSED" ? (
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => run(() => handleStatus("ACTIVE"))}
+            >
+              <Play />
+              Resume
+            </Button>
+          ) : null}
+          {queue.status !== "CLOSED" ? (
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() => setConfirm({ kind: "close" })}
+            >
+              <Ban />
+              Close
+            </Button>
+          ) : null}
+        </div>
       ) : null}
-      {canManage && queue && waiting.length > 0 ? (
-        <Button
-          variant="secondary"
-          disabled={pending}
-          onClick={() => run(handleCallNext)}
-        >
-          Call next
-        </Button>
-      ) : null}
-      {canManage && queue?.status === "ACTIVE" ? (
-        <Button
-          variant="outline"
-          disabled={pending}
-          onClick={() => setConfirm({ kind: "pause" })}
-        >
-          <Pause />
-          Pause
-        </Button>
-      ) : null}
-      {canManage && queue?.status === "PAUSED" ? (
-        <Button
-          variant="outline"
-          disabled={pending}
-          onClick={() => run(() => handleStatus("ACTIVE"))}
-        >
-          <Play />
-          Resume
-        </Button>
-      ) : null}
-      {canManage && queue && queue.status !== "CLOSED" ? (
-        <Button
-          variant="outline"
-          disabled={pending}
-          onClick={() => setConfirm({ kind: "close" })}
-        >
-          <Ban />
-          Close
-        </Button>
-      ) : null}
-      {canConfigure && queue ? (
-        <Button
-          variant="outline"
-          onClick={() => setSettingsOpen(true)}
-          disabled={pending}
-        >
-          <Settings2 />
-          Queue settings
-        </Button>
-      ) : (
-        <Button variant="outline" render={<Link href={SETTINGS_QUEUE_PATH} />}>
-          <Settings2 />
-          Queue settings
-        </Button>
-      )}
     </div>
   );
 
   return (
-    <div>
+    <div className="min-w-0">
       <PageHeader
         title="Queue Management"
         description="Call, seat, and complete waiting guests for this branch."
@@ -454,11 +534,12 @@ export function QueueBoard({
       />
 
       {bundle.queues.length > 1 ? (
-        <div className="mb-4 max-w-xs">
+        <div className="mb-4 w-full max-w-md">
           <Select
             value={queue?.id ?? ""}
             onChange={(event) => handleQueueChange(event.target.value)}
             aria-label="Select queue"
+            className="w-full"
           >
             {bundle.queues.map((item) => (
               <option key={item.id} value={item.id}>
@@ -487,18 +568,20 @@ export function QueueBoard({
         />
       ) : (
         <>
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <StatusBadge
-              label={queueStatusLabel(queue.status)}
-              tone={queueStatusTone(queue.status)}
-            />
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge
+                label={queueStatusLabel(queue.status)}
+                tone={queueStatusTone(queue.status)}
+              />
+            </div>
             {realtimeStatus === "error" || realtimeStatus === "disconnected" ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm text-pretty">
                 {REALTIME_MESSAGES.staffUnavailable}
               </p>
             ) : null}
             {queue.status === "PAUSED" ? (
-              <p className="text-sm text-amber-800 dark:text-amber-200">
+              <p className="text-sm text-pretty text-amber-800 dark:text-amber-200">
                 Queue is paused. Waiting guests stay in line, but new entries
                 are not accepted.
               </p>
@@ -507,36 +590,59 @@ export function QueueBoard({
               <p className="text-destructive text-sm">Queue is closed.</p>
             ) : null}
             {!bundle.defaults.queueEnabled ? (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm text-pretty">
                 Restaurant queue setting is disabled.
               </p>
             ) : null}
           </div>
 
-          <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mb-6 grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-3 lg:grid-cols-5">
             <StatCard
               title="Waiting"
               value={bundle.stats.waiting}
               icon={<Users />}
             />
-            <StatCard title="Called" value={bundle.stats.called} />
-            <StatCard title="Seated" value={bundle.stats.seated} />
-            <StatCard title="Completed" value={bundle.stats.completed} />
-            <StatCard title="No-show" value={bundle.stats.noShow} />
+            <StatCard
+              title="Called"
+              value={bundle.stats.called}
+              icon={<ListOrdered />}
+            />
+            <StatCard
+              title="Seated"
+              value={bundle.stats.seated}
+              icon={<Utensils />}
+            />
+            <StatCard
+              title="Completed"
+              value={bundle.stats.completed}
+              icon={<CheckCircle2 />}
+            />
+            <StatCard
+              title="No-show"
+              value={bundle.stats.noShow}
+              icon={<UserX />}
+              className="col-span-2 md:col-span-1 lg:col-span-1"
+            />
           </div>
 
-          <div className="mb-4 flex gap-2">
+          <div className="border-border mb-4 flex rounded-lg border p-0.5">
             <Button
-              variant={view === "live" ? "default" : "outline"}
+              variant={view === "live" ? "secondary" : "ghost"}
+              className="min-w-0 flex-1"
+              aria-pressed={view === "live"}
               onClick={() => setView("live")}
             >
-              Live queue
+              <ListOrdered />
+              <span className="truncate">Live queue</span>
             </Button>
             <Button
-              variant={view === "history" ? "default" : "outline"}
+              variant={view === "history" ? "secondary" : "ghost"}
+              className="min-w-0 flex-1"
+              aria-pressed={view === "history"}
               onClick={() => setView("history")}
             >
-              History
+              <History />
+              <span className="truncate">History</span>
             </Button>
           </div>
 
@@ -550,7 +656,7 @@ export function QueueBoard({
             />
           ) : (
             <>
-              <section className="border-border bg-card mb-6 rounded-xl border p-4 sm:p-5">
+              <section className="border-border bg-card mb-6 rounded-xl border p-3 sm:p-5">
                 <h2 className="text-muted-foreground text-sm font-medium">
                   Currently serving
                 </h2>
@@ -559,7 +665,7 @@ export function QueueBoard({
                     No guest is currently being served.
                   </p>
                 ) : (
-                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     {serving.map((entry) => {
                       const elapsed = elapsedMinutesSince(
                         entry.called_at ?? entry.joined_at,
@@ -569,14 +675,14 @@ export function QueueBoard({
                       return (
                         <div
                           key={entry.id}
-                          className="border-border rounded-lg border p-4"
+                          className="border-border min-w-0 rounded-lg border p-3 sm:p-4"
                         >
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="font-mono text-3xl font-semibold tracking-tight">
+                          <div className="flex items-start justify-between gap-2 sm:gap-3">
+                            <div className="min-w-0">
+                              <p className="font-mono text-2xl font-semibold tracking-tight sm:text-3xl">
                                 {entry.token}
                               </p>
-                              <p className="text-sm font-medium">
+                              <p className="truncate text-sm font-medium">
                                 {entry.customer?.name ?? "Guest"}
                               </p>
                             </div>
@@ -585,7 +691,7 @@ export function QueueBoard({
                               tone={queueEntryStatusTone(entry.status)}
                             />
                           </div>
-                          <p className="text-muted-foreground mt-2 text-sm">
+                          <p className="text-muted-foreground mt-2 text-sm text-pretty">
                             Party {entry.party_size}
                             {entry.table
                               ? ` · ${queueTableLabel(entry.table)}`
@@ -602,6 +708,7 @@ export function QueueBoard({
                                   disabled={pending}
                                   onClick={() => setSeatEntry(entry)}
                                 >
+                                  <Utensils />
                                   Seat
                                 </Button>
                               ) : null}
@@ -613,6 +720,7 @@ export function QueueBoard({
                                     run(() => handleComplete(entry))
                                   }
                                 >
+                                  <CheckCircle2 />
                                   Complete
                                 </Button>
                               ) : null}
@@ -625,6 +733,7 @@ export function QueueBoard({
                                     setConfirm({ kind: "noShow", entry })
                                   }
                                 >
+                                  <UserX />
                                   No show
                                 </Button>
                               ) : null}
@@ -637,8 +746,8 @@ export function QueueBoard({
                 )}
               </section>
 
-              <section>
-                <div className="mb-3 flex items-center justify-between gap-2">
+              <section className="min-w-0">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
                   <h2 className="text-lg font-medium">Waiting queue</h2>
                   <p className="text-muted-foreground text-xs">
                     Ordered by join time ·{" "}
@@ -655,7 +764,7 @@ export function QueueBoard({
                     }
                   />
                 ) : (
-                  <div className="grid gap-3 lg:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-2">
                     {waiting.map((entry) => (
                       <QueueEntryCard
                         key={entry.id}

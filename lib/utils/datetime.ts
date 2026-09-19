@@ -4,36 +4,12 @@ export type DateFormat = (typeof DATE_FORMATS)[number];
 export const TIME_FORMATS = ["12h", "24h"] as const;
 export type TimeFormat = (typeof TIME_FORMATS)[number];
 
-export const LANGUAGES = [
-  { code: "en", label: "English" },
-  { code: "hi", label: "Hindi" },
-  { code: "ar", label: "Arabic" },
-  { code: "es", label: "Spanish" },
-  { code: "fr", label: "French" },
-  { code: "de", label: "German" },
-  { code: "pt", label: "Portuguese" },
-  { code: "zh", label: "Chinese" },
-  { code: "ja", label: "Japanese" },
-  { code: "ms", label: "Malay" },
-] as const;
-
-export type LanguageCode = (typeof LANGUAGES)[number]["code"];
-
-export const LANGUAGE_CODES = LANGUAGES.map((item) => item.code) as [
-  LanguageCode,
-  ...LanguageCode[],
-];
-
 export function isDateFormat(value: string): value is DateFormat {
   return (DATE_FORMATS as readonly string[]).includes(value);
 }
 
 export function isTimeFormat(value: string): value is TimeFormat {
   return (TIME_FORMATS as readonly string[]).includes(value);
-}
-
-export function isLanguageCode(value: string): value is LanguageCode {
-  return (LANGUAGE_CODES as readonly string[]).includes(value);
 }
 
 export type ZonedDateParts = {

@@ -21,8 +21,16 @@ export const REALTIME_TABLE_TABLES = ["restaurant_tables"] as const;
 
 export type RealtimeTableTable = (typeof REALTIME_TABLE_TABLES)[number];
 
+export const REALTIME_RESERVATION_TABLES = ["reservations"] as const;
+
+export type RealtimeReservationTable =
+  (typeof REALTIME_RESERVATION_TABLES)[number];
+
 export type RealtimeChangeSource =
-  RealtimeQueueTable | RealtimeTableTable | "broadcast";
+  | RealtimeQueueTable
+  | RealtimeTableTable
+  | RealtimeReservationTable
+  | "broadcast";
 
 export type RealtimeChange = {
   source: RealtimeChangeSource;

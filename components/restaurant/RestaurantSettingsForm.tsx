@@ -13,7 +13,6 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  CURRENCIES,
   TIMEZONES,
   restaurantFormSchema,
   type RestaurantFormValues,
@@ -48,12 +47,6 @@ type RestaurantSettingsFormProps = {
   canManage: boolean;
 };
 
-function asCurrency(value: string): RestaurantFormValues["currency"] {
-  return (CURRENCIES as readonly string[]).includes(value)
-    ? (value as RestaurantFormValues["currency"])
-    : "USD";
-}
-
 export function RestaurantSettingsForm({
   restaurant,
   canManage,
@@ -70,7 +63,6 @@ export function RestaurantSettingsForm({
       phone: restaurant.phone ?? "",
       website: restaurant.website ?? "",
       description: restaurant.description ?? "",
-      currency: asCurrency(restaurant.currency),
       timezone: restaurant.timezone || "UTC",
     },
   });
@@ -162,35 +154,19 @@ export function RestaurantSettingsForm({
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="currency">Currency</Label>
-            <Select
-              id="currency"
-              disabled={!canManage || pending}
-              {...form.register("currency")}
-            >
-              {CURRENCIES.map((code) => (
-                <option key={code} value={code}>
-                  {code}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="timezone">Timezone</Label>
-            <Select
-              id="timezone"
-              disabled={!canManage || pending}
-              {...form.register("timezone")}
-            >
-              {zones.map((zone) => (
-                <option key={zone} value={zone}>
-                  {zone}
-                </option>
-              ))}
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="timezone">Timezone</Label>
+          <Select
+            id="timezone"
+            disabled={!canManage || pending}
+            {...form.register("timezone")}
+          >
+            {zones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </Select>
         </div>
 
         {canManage ? (

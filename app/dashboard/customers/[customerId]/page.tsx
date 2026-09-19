@@ -7,6 +7,7 @@ import { requireWorkspacePage } from "@/lib/context/workspace";
 import { customerDetailBreadcrumbs } from "@/lib/navigation/breadcrumbs";
 import { canManageCustomers, canViewCustomers } from "@/lib/utils/customers";
 import { getCustomer } from "@/services/customers";
+import { getCustomerReservationHistory } from "@/services/reservations";
 
 type PageProps = {
   params: Promise<{ customerId: string }>;
@@ -61,6 +62,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
 
   const canManage = canManageCustomers(role);
   const timezone = workspace.restaurant?.timezone || "UTC";
+  const reservationHistory = await getCustomerReservationHistory(customer.id);
 
   return (
     <CustomerDetail
@@ -68,6 +70,7 @@ export default async function CustomerDetailPage({ params }: PageProps) {
       customer={customer}
       timezone={timezone}
       canManage={canManage}
+      reservationHistory={reservationHistory}
     />
   );
 }

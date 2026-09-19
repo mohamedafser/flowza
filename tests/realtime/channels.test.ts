@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   assertSafeRealtimeChannel,
   createQueueChannel,
+  createReservationChannel,
   createTableChannel,
   isSafeRealtimeChannel,
   parseQueueChannel,
+  parseReservationChannel,
   parseTableChannel,
 } from "@/lib/realtime/channels";
 
@@ -22,6 +24,9 @@ describe("realtime channel naming", () => {
     );
     expect(createTableChannel(restaurantA, branchA)).toBe(
       `restaurant:${restaurantA}:branch:${branchA}:tables`,
+    );
+    expect(createReservationChannel(restaurantA, branchA)).toBe(
+      `restaurant:${restaurantA}:branch:${branchA}:reservations`,
     );
   });
 
@@ -65,5 +70,8 @@ describe("realtime channel naming", () => {
     expect(parseTableChannel(createTableChannel(restaurantA, branchA))).toEqual(
       { restaurantId: restaurantA, branchId: branchA },
     );
+    expect(
+      parseReservationChannel(createReservationChannel(restaurantA, branchA)),
+    ).toEqual({ restaurantId: restaurantA, branchId: branchA });
   });
 });

@@ -37,7 +37,7 @@ const publicPhoneInput = z
     if (!normalized || !isValidNormalizedPhone(normalized)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Enter a valid phone number",
+        message: "Please enter a valid phone number.",
       });
     }
   })
@@ -71,7 +71,7 @@ export function joinPublicQueueSchema(options: {
       if (options.requirePhone && !value.phone) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Phone number is required",
+          message: "Phone number is required.",
           path: ["phone"],
         });
       }
@@ -98,7 +98,7 @@ export function joinPublicQueueFormSchema(options: {
           if (options.requirePhone) {
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              message: "Phone number is required",
+              message: "Phone number is required.",
             });
           }
           return;
@@ -107,7 +107,7 @@ export function joinPublicQueueFormSchema(options: {
         if (!normalized || !isValidNormalizedPhone(normalized)) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
-            message: "Enter a valid phone number",
+            message: "Please enter a valid phone number.",
           });
         }
       }),
@@ -125,3 +125,20 @@ export function toJoinPublicQueueFormValues(): JoinPublicQueueFormValues {
     partySize: 2,
   };
 }
+
+export const searchPublicQueueCustomersSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1, "Enter a name or phone to search.")
+    .max(120, "Search is too long"),
+});
+
+export type SearchPublicQueueCustomersInput = z.infer<
+  typeof searchPublicQueueCustomersSchema
+>;
+
+export type PublicQueueCustomerSearchResult = {
+  name: string;
+  phone: string | null;
+};

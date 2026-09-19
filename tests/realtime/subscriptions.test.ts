@@ -83,8 +83,13 @@ function createFakeClient() {
   };
 }
 
+async function settled() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 describe("staff queue realtime subscriptions", () => {
-  it("creates one scoped channel and cleans it up", () => {
+  it("creates one scoped channel and cleans it up", async () => {
     const client = createFakeClient();
     const unsubscribe = subscribeToQueue({
       client,
@@ -93,11 +98,13 @@ describe("staff queue realtime subscriptions", () => {
       branchId: branchA,
       onChange: () => undefined,
     });
+    await settled();
 
     expect(client.channels).toHaveLength(1);
     expect(client.channels[0]?.name).toBe(
       createQueueChannel(restaurantA, queueA),
     );
+    expect(client.channels[0]?.config).toEqual({ private: false });
     const tables = client.channels[0]?.listeners.map(
       (listener) => listener.table,
     );
@@ -119,13 +126,32 @@ describe("staff queue realtime subscriptions", () => {
       client.channels[0]?.listeners.some(
         (listener) => listener.event === "broadcast",
       ),
-    ).toBe(false);
+    ).toBe(true);
 
     unsubscribe();
     expect(client.channels[0]?.unsubscribed).toBe(true);
   });
 
-  it("ignores another queue's postgres payload", () => {
+  it("refreshes on queue broadcast as well as postgres changes", async () => {
+    const client = createFakeClient();
+    const received: string[] = [];
+    subscribeToQueue({
+      client,
+      restaurantId: restaurantA,
+      queueId: queueA,
+      branchId: branchA,
+      onChange: (change) => received.push(change.source),
+    });
+    await settled();
+
+    const broadcast = client.channels[0]?.listeners.find(
+      (item) => item.event === "broadcast",
+    );
+    broadcast?.handler({});
+    expect(received).toEqual(["broadcast"]);
+  });
+
+  it("ignores another queue's postgres payload", async () => {
     const client = createFakeClient();
     const received: string[] = [];
     subscribeToQueue({
@@ -135,6 +161,7 @@ describe("staff queue realtime subscriptions", () => {
       branchId: branchA,
       onChange: (change) => received.push(change.queueId ?? ""),
     });
+    await settled();
     const listener = client.channels[0]?.listeners.find(
       (item) => item.table === "queue_entries",
     );
@@ -152,7 +179,7 @@ describe("staff queue realtime subscriptions", () => {
     expect(received).toEqual([queueA]);
   });
 
-  it("replaces the previous subscription when the queue or branch changes", () => {
+  it("replaces the previous subscription when the queue or branch changes", async () => {
     const client = createFakeClient();
     const first = subscribeToQueue({
       client,
@@ -161,6 +188,7 @@ describe("staff queue realtime subscriptions", () => {
       branchId: branchA,
       onChange: () => undefined,
     });
+    await settled();
     const second = subscribeToQueue({
       client,
       restaurantId: restaurantA,
@@ -168,6 +196,7 @@ describe("staff queue realtime subscriptions", () => {
       branchId: branchB,
       onChange: () => undefined,
     });
+    await settled();
     expect(client.channels.map((channel) => channel.name)).toEqual([
       createQueueChannel(restaurantA, queueA),
       createQueueChannel(restaurantA, queueB),
@@ -233,7 +262,7 @@ describe("customer public queue realtime", () => {
 });
 
 describe("table realtime subscriptions", () => {
-  it("scopes tables to a branch and cleans up", () => {
+  it("scopes tables to a branch and cleans up", async () => {
     const client = createFakeClient();
     const received: string[] = [];
     const unsubscribe = subscribeToTables({
@@ -242,6 +271,7 @@ describe("table realtime subscriptions", () => {
       branchId: branchA,
       onChange: (change) => received.push(change.branchId ?? ""),
     });
+    await settled();
     expect(client.channels[0]?.name).toBe(
       createTableChannel(restaurantA, branchA),
     );

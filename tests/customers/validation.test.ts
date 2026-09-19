@@ -18,28 +18,29 @@ describe("customer validation", () => {
     expect(customerNameSchema.parse("  Maya  ")).toBe("Maya");
   });
 
-  it("accepts a name-only create payload", () => {
+  it("requires a phone number on create", () => {
     const parsed = createCustomerSchema.safeParse({
       name: "Alex Rivera",
       phone: "",
       email: "",
     });
-    expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      expect(parsed.data.phone).toBeNull();
-      expect(parsed.data.email).toBeNull();
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.message).toBe(
+        "Phone number is required.",
+      );
     }
   });
 
-  it("normalizes optional phone and email", () => {
+  it("normalizes required phone and optional email to E.164", () => {
     const parsed = createCustomerSchema.safeParse({
       name: "Sam Lee",
-      phone: "+1 (555) 010-2030",
+      phone: "+1 415 555 2671",
       email: "  Sam.Lee@Example.COM ",
     });
     expect(parsed.success).toBe(true);
     if (parsed.success) {
-      expect(parsed.data.phone).toBe("+15550102030");
+      expect(parsed.data.phone).toBe("+14155552671");
       expect(parsed.data.email).toBe("sam.lee@example.com");
     }
   });
@@ -48,31 +49,31 @@ describe("customer validation", () => {
     expect(
       createCustomerSchema.safeParse({
         name: "Sam",
-        phone: "",
+        phone: "+14155552671",
         email: "not-an-email",
-      }).success,
-    ).toBe(false);
-    expect(
-      customerFieldsSchema.safeParse({
-        name: "Sam",
-        phone: "",
-        email: "nope",
       }).success,
     ).toBe(false);
   });
 
-  it("rejects an invalid phone and does not treat junk as empty", () => {
+  it("rejects an invalid phone with a clear message", () => {
+    const parsed = createCustomerSchema.safeParse({
+      name: "Sam",
+      phone: "abc",
+      email: "",
+    });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues[0]?.message).toBe(
+        "Please enter a valid phone number.",
+      );
+    }
+  });
+
+  it("requires phone on the form schema", () => {
     expect(
-      createCustomerSchema.safeParse({
+      customerFieldsSchema.safeParse({
         name: "Sam",
-        phone: "abc",
-        email: "",
-      }).success,
-    ).toBe(false);
-    expect(
-      createCustomerSchema.safeParse({
-        name: "Sam",
-        phone: "123",
+        phone: "",
         email: "",
       }).success,
     ).toBe(false);
@@ -81,7 +82,7 @@ describe("customer validation", () => {
   it("does not accept a restaurant id on create or update", () => {
     const created = createCustomerSchema.safeParse({
       name: "Sam",
-      phone: "",
+      phone: "+14155552671",
       email: "",
       restaurantId: "11111111-1111-1111-1111-111111111111",
     });
@@ -93,7 +94,7 @@ describe("customer validation", () => {
     const updated = updateCustomerSchema.safeParse({
       customerId,
       name: "Sam",
-      phone: "",
+      phone: "+14155552671",
       email: "",
       restaurantId: "11111111-1111-1111-1111-111111111111",
     });
@@ -108,7 +109,7 @@ describe("customer validation", () => {
       updateCustomerSchema.safeParse({
         customerId: "not-a-uuid",
         name: "Sam",
-        phone: "",
+        phone: "+14155552671",
         email: "",
       }).success,
     ).toBe(false);

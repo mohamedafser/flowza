@@ -14,6 +14,7 @@ import type {
   RealtimeConnectionStatus,
 } from "@/lib/realtime/types";
 import {
+  ensureRealtimeAuth,
   getRealtimeBrowserClient,
   mapChannelSubscribeStatus,
   unsubscribeChannel,
@@ -64,46 +65,64 @@ export function subscribeToQueue(
   };
 
   onStatus?.("connecting");
-  channel = client
-    .channel(topic)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "queue_entries",
-        filter: `queue_id=eq.${queueId}`,
-      },
-      (payload) => emit(payload, "queue_entries"),
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "queues",
-        filter: `id=eq.${queueId}`,
-      },
-      (payload) => emit(payload, "queues"),
-    )
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "restaurant_tables",
-        filter: `branch_id=eq.${branchId}`,
-      },
-      (payload) => emit(payload, "restaurant_tables"),
-    )
-    .subscribe((status) => {
-      if (cleaned) return;
-      const mapped = mapChannelSubscribeStatus(status, previousConnected);
-      if (mapped === "connected") {
-        previousConnected = true;
-      }
-      onStatus?.(mapped);
-    });
+
+  void (async () => {
+    await ensureRealtimeAuth(client);
+    if (cleaned) return;
+
+    // private: false matches realtime.send(..., false) from DB triggers.
+    // Also listen for that broadcast so QR / public joins refresh the staff
+    // board even when RLS-filtered postgres_changes are dropped.
+    channel = client
+      .channel(topic, { config: { private: false } })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "queue_entries",
+          filter: `queue_id=eq.${queueId}`,
+        },
+        (payload) => emit(payload, "queue_entries"),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "queues",
+          filter: `id=eq.${queueId}`,
+        },
+        (payload) => emit(payload, "queues"),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "restaurant_tables",
+          filter: `branch_id=eq.${branchId}`,
+        },
+        (payload) => emit(payload, "restaurant_tables"),
+      )
+      .on("broadcast", { event: REALTIME_QUEUE_CHANGED_EVENT }, () => {
+        emit(
+          {
+            source: "broadcast",
+            eventType: "queue_changed",
+          },
+          "broadcast",
+        );
+      })
+      .subscribe((status) => {
+        if (cleaned) return;
+        const mapped = mapChannelSubscribeStatus(status, previousConnected);
+        if (mapped === "connected") {
+          previousConnected = true;
+        }
+        onStatus?.(mapped);
+      });
+  })();
 
   return () => {
     cleaned = true;

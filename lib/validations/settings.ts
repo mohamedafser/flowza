@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { LANGUAGE_CODES } from "@/lib/utils/datetime";
 import { DATE_FORMATS, TIME_FORMATS } from "@/lib/utils/datetime";
 import { restaurantFormSchema } from "@/lib/validations/restaurant";
 
@@ -11,12 +10,7 @@ export const timeFormatSchema = z.enum(TIME_FORMATS, {
   errorMap: () => ({ message: "Select a valid time format" }),
 });
 
-export const languageSchema = z.enum(LANGUAGE_CODES, {
-  errorMap: () => ({ message: "Select a valid language" }),
-});
-
 export const localeSettingsSchema = z.object({
-  defaultLanguage: languageSchema,
   dateFormat: dateFormatSchema,
   timeFormat: timeFormatSchema,
 });

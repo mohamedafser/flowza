@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Mail, Phone, Plus, UserPlus, Users } from "lucide-react";
+import {
+  CalendarDays,
+  CalendarPlus,
+  Mail,
+  Phone,
+  Plus,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Pagination } from "@/components/common/Pagination";
@@ -38,8 +46,18 @@ const STAT_CARDS: Array<{
   icon?: React.ReactNode;
 }> = [
   { title: "Total customers", filter: "all", key: "total", icon: <Users /> },
-  { title: "Added today", filter: "today", key: "addedToday" },
-  { title: "Added this week", filter: "week", key: "addedThisWeek" },
+  {
+    title: "Added today",
+    filter: "today",
+    key: "addedToday",
+    icon: <CalendarPlus />,
+  },
+  {
+    title: "Added this week",
+    filter: "week",
+    key: "addedThisWeek",
+    icon: <CalendarDays />,
+  },
   {
     title: "With phone",
     filter: "phone",

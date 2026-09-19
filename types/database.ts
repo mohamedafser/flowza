@@ -64,7 +64,6 @@ export type Database = {
           website: string | null;
           description: string | null;
           timezone: string;
-          currency: string;
           status: Database["public"]["Enums"]["restaurant_status"];
           created_at: string;
           updated_at: string;
@@ -79,7 +78,6 @@ export type Database = {
           website?: string | null;
           description?: string | null;
           timezone?: string;
-          currency?: string;
           status?: Database["public"]["Enums"]["restaurant_status"];
           created_at?: string;
           updated_at?: string;
@@ -94,7 +92,6 @@ export type Database = {
           website?: string | null;
           description?: string | null;
           timezone?: string;
-          currency?: string;
           status?: Database["public"]["Enums"]["restaurant_status"];
           created_at?: string;
           updated_at?: string;
@@ -394,6 +391,7 @@ export type Database = {
           queue_id: string;
           customer_id: string | null;
           table_id: string | null;
+          reservation_id: string | null;
           token: string;
           business_date: string;
           party_size: number;
@@ -414,6 +412,7 @@ export type Database = {
           queue_id: string;
           customer_id?: string | null;
           table_id?: string | null;
+          reservation_id?: string | null;
           token: string;
           business_date?: string;
           party_size?: number;
@@ -434,6 +433,7 @@ export type Database = {
           queue_id?: string;
           customer_id?: string | null;
           table_id?: string | null;
+          reservation_id?: string | null;
           token?: string;
           business_date?: string;
           party_size?: number;
@@ -469,6 +469,13 @@ export type Database = {
             columns: ["table_id"];
             isOneToOne: false;
             referencedRelation: "restaurant_tables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "queue_entries_reservation_id_fkey";
+            columns: ["reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "reservations";
             referencedColumns: ["id"];
           },
         ];
@@ -644,12 +651,24 @@ export type Database = {
           id: string;
           branch_id: string;
           customer_id: string | null;
+          reservation_code: string | null;
           reservation_date: string;
           start_time: string;
           end_time: string | null;
+          duration_minutes: number;
           party_size: number;
           status: Database["public"]["Enums"]["reservation_status"];
           notes: string | null;
+          special_requests: string | null;
+          cancelled_reason: string | null;
+          table_id: string | null;
+          created_by: string | null;
+          confirmed_at: string | null;
+          arrived_at: string | null;
+          seated_at: string | null;
+          completed_at: string | null;
+          cancelled_at: string | null;
+          no_show_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -657,12 +676,24 @@ export type Database = {
           id?: string;
           branch_id: string;
           customer_id?: string | null;
+          reservation_code?: string | null;
           reservation_date: string;
           start_time: string;
           end_time?: string | null;
+          duration_minutes?: number;
           party_size?: number;
           status?: Database["public"]["Enums"]["reservation_status"];
           notes?: string | null;
+          special_requests?: string | null;
+          cancelled_reason?: string | null;
+          table_id?: string | null;
+          created_by?: string | null;
+          confirmed_at?: string | null;
+          arrived_at?: string | null;
+          seated_at?: string | null;
+          completed_at?: string | null;
+          cancelled_at?: string | null;
+          no_show_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -670,12 +701,24 @@ export type Database = {
           id?: string;
           branch_id?: string;
           customer_id?: string | null;
+          reservation_code?: string | null;
           reservation_date?: string;
           start_time?: string;
           end_time?: string | null;
+          duration_minutes?: number;
           party_size?: number;
           status?: Database["public"]["Enums"]["reservation_status"];
           notes?: string | null;
+          special_requests?: string | null;
+          cancelled_reason?: string | null;
+          table_id?: string | null;
+          created_by?: string | null;
+          confirmed_at?: string | null;
+          arrived_at?: string | null;
+          seated_at?: string | null;
+          completed_at?: string | null;
+          cancelled_at?: string | null;
+          no_show_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -694,6 +737,20 @@ export type Database = {
             referencedRelation: "customers";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "reservations_table_id_fkey";
+            columns: ["table_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurant_tables";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "reservations_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
         ];
       };
       notifications: {
@@ -702,11 +759,24 @@ export type Database = {
           restaurant_id: string;
           customer_id: string | null;
           queue_entry_id: string | null;
+          reservation_id: string | null;
+          branch_id: string | null;
           channel: Database["public"]["Enums"]["notification_channel"];
           type: string;
           status: Database["public"]["Enums"]["notification_status"];
           recipient: string;
           payload: Json;
+          audience: string;
+          provider: string | null;
+          provider_message_id: string | null;
+          attempts: number;
+          last_attempt_at: string | null;
+          error_code: string | null;
+          error_message: string | null;
+          scheduled_at: string | null;
+          idempotency_key: string | null;
+          title: string | null;
+          body: string | null;
           sent_at: string | null;
           created_at: string;
           updated_at: string;
@@ -716,11 +786,24 @@ export type Database = {
           restaurant_id: string;
           customer_id?: string | null;
           queue_entry_id?: string | null;
+          reservation_id?: string | null;
+          branch_id?: string | null;
           channel: Database["public"]["Enums"]["notification_channel"];
           type: string;
           status?: Database["public"]["Enums"]["notification_status"];
           recipient: string;
           payload?: Json;
+          audience?: string;
+          provider?: string | null;
+          provider_message_id?: string | null;
+          attempts?: number;
+          last_attempt_at?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          scheduled_at?: string | null;
+          idempotency_key?: string | null;
+          title?: string | null;
+          body?: string | null;
           sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -730,11 +813,24 @@ export type Database = {
           restaurant_id?: string;
           customer_id?: string | null;
           queue_entry_id?: string | null;
+          reservation_id?: string | null;
+          branch_id?: string | null;
           channel?: Database["public"]["Enums"]["notification_channel"];
           type?: string;
           status?: Database["public"]["Enums"]["notification_status"];
           recipient?: string;
           payload?: Json;
+          audience?: string;
+          provider?: string | null;
+          provider_message_id?: string | null;
+          attempts?: number;
+          last_attempt_at?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          scheduled_at?: string | null;
+          idempotency_key?: string | null;
+          title?: string | null;
+          body?: string | null;
           sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -759,6 +855,110 @@ export type Database = {
             columns: ["queue_entry_id"];
             isOneToOne: false;
             referencedRelation: "queue_entries";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_reservation_id_fkey";
+            columns: ["reservation_id"];
+            isOneToOne: false;
+            referencedRelation: "reservations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notifications_branch_id_fkey";
+            columns: ["branch_id"];
+            isOneToOne: false;
+            referencedRelation: "branches";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      notification_reads: {
+        Row: {
+          notification_id: string;
+          user_id: string;
+          read_at: string;
+        };
+        Insert: {
+          notification_id: string;
+          user_id: string;
+          read_at?: string;
+        };
+        Update: {
+          notification_id?: string;
+          user_id?: string;
+          read_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_reads_notification_id_fkey";
+            columns: ["notification_id"];
+            isOneToOne: false;
+            referencedRelation: "notifications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notification_reads_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      customer_notification_preferences: {
+        Row: {
+          customer_id: string;
+          restaurant_id: string;
+          email_enabled: boolean;
+          whatsapp_enabled: boolean;
+          sms_enabled: boolean;
+          in_app_enabled: boolean;
+          notify_queue_joined: boolean;
+          notify_queue_called: boolean;
+          notify_queue_reminder: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          customer_id: string;
+          restaurant_id: string;
+          email_enabled?: boolean;
+          whatsapp_enabled?: boolean;
+          sms_enabled?: boolean;
+          in_app_enabled?: boolean;
+          notify_queue_joined?: boolean;
+          notify_queue_called?: boolean;
+          notify_queue_reminder?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          customer_id?: string;
+          restaurant_id?: string;
+          email_enabled?: boolean;
+          whatsapp_enabled?: boolean;
+          sms_enabled?: boolean;
+          in_app_enabled?: boolean;
+          notify_queue_joined?: boolean;
+          notify_queue_called?: boolean;
+          notify_queue_reminder?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "customer_notification_preferences_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: true;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "customer_notification_preferences_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurants";
             referencedColumns: ["id"];
           },
         ];
@@ -876,9 +1076,19 @@ export type Database = {
           allow_customer_cancel: boolean;
           require_customer_name: boolean;
           require_customer_phone: boolean;
-          default_language: string;
           date_format: string;
           time_format: string;
+          notifications_email_enabled: boolean;
+          notifications_whatsapp_enabled: boolean;
+          notifications_sms_enabled: boolean;
+          notifications_in_app_enabled: boolean;
+          notify_customer_on_join: boolean;
+          notify_customer_on_called: boolean;
+          notify_customer_on_reminder: boolean;
+          notify_staff_on_join: boolean;
+          notify_staff_on_cancel: boolean;
+          notify_staff_on_no_show: boolean;
+          notify_staff_queue_busy_threshold: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -899,9 +1109,19 @@ export type Database = {
           allow_customer_cancel?: boolean;
           require_customer_name?: boolean;
           require_customer_phone?: boolean;
-          default_language?: string;
           date_format?: string;
           time_format?: string;
+          notifications_email_enabled?: boolean;
+          notifications_whatsapp_enabled?: boolean;
+          notifications_sms_enabled?: boolean;
+          notifications_in_app_enabled?: boolean;
+          notify_customer_on_join?: boolean;
+          notify_customer_on_called?: boolean;
+          notify_customer_on_reminder?: boolean;
+          notify_staff_on_join?: boolean;
+          notify_staff_on_cancel?: boolean;
+          notify_staff_on_no_show?: boolean;
+          notify_staff_queue_busy_threshold?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -922,9 +1142,19 @@ export type Database = {
           allow_customer_cancel?: boolean;
           require_customer_name?: boolean;
           require_customer_phone?: boolean;
-          default_language?: string;
           date_format?: string;
           time_format?: string;
+          notifications_email_enabled?: boolean;
+          notifications_whatsapp_enabled?: boolean;
+          notifications_sms_enabled?: boolean;
+          notifications_in_app_enabled?: boolean;
+          notify_customer_on_join?: boolean;
+          notify_customer_on_called?: boolean;
+          notify_customer_on_reminder?: boolean;
+          notify_staff_on_join?: boolean;
+          notify_staff_on_cancel?: boolean;
+          notify_staff_on_no_show?: boolean;
+          notify_staff_queue_busy_threshold?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1086,7 +1316,6 @@ export type Database = {
           p_phone: string;
           p_website: string | null;
           p_description: string | null;
-          p_currency: string;
           p_timezone: string;
         };
         Returns: Database["public"]["Tables"]["restaurants"]["Row"];
@@ -1164,6 +1393,14 @@ export type Database = {
         Args: { p_restaurant_slug: string; p_branch_slug: string };
         Returns: Json;
       };
+      search_public_queue_customers: {
+        Args: {
+          p_restaurant_slug: string;
+          p_branch_slug: string;
+          p_query: string;
+        };
+        Returns: Json;
+      };
       queue_join_public: {
         Args: {
           p_restaurant_slug: string;
@@ -1206,6 +1443,70 @@ export type Database = {
         Args: { p_settings: Json };
         Returns: Json;
       };
+      notification_enqueue: {
+        Args: {
+          p_restaurant_id: string;
+          p_channel: Database["public"]["Enums"]["notification_channel"];
+          p_type: string;
+          p_recipient: string;
+          p_payload?: Json;
+          p_customer_id?: string | null;
+          p_queue_entry_id?: string | null;
+          p_branch_id?: string | null;
+          p_audience?: string;
+          p_idempotency_key?: string | null;
+          p_title?: string | null;
+          p_body?: string | null;
+          p_provider?: string | null;
+          p_scheduled_at?: string | null;
+          p_reservation_id?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["notifications"]["Row"];
+      };
+      allocate_reservation_code: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      branch_is_open_at: {
+        Args: { p_branch_id: string; p_at: string };
+        Returns: boolean;
+      };
+      reservation_table_has_conflict: {
+        Args: {
+          p_branch_id: string;
+          p_table_id: string;
+          p_date: string;
+          p_start: string;
+          p_end: string;
+          p_exclude_id?: string | null;
+        };
+        Returns: boolean;
+      };
+      reservation_transition: {
+        Args: {
+          p_reservation_id: string;
+          p_to_status: Database["public"]["Enums"]["reservation_status"];
+          p_table_id?: string | null;
+          p_cancelled_reason?: string | null;
+        };
+        Returns: Database["public"]["Tables"]["reservations"]["Row"];
+      };
+      notification_mark_delivery: {
+        Args: {
+          p_notification_id: string;
+          p_status: Database["public"]["Enums"]["notification_status"];
+          p_provider?: string | null;
+          p_provider_message_id?: string | null;
+          p_error_code?: string | null;
+          p_error_message?: string | null;
+          p_increment_attempt?: boolean;
+        };
+        Returns: Database["public"]["Tables"]["notifications"]["Row"];
+      };
+      notification_claim: {
+        Args: { p_notification_id: string };
+        Returns: Database["public"]["Tables"]["notifications"]["Row"];
+      };
     };
     Enums: {
       restaurant_status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
@@ -1235,12 +1536,14 @@ export type Database = {
       reservation_status:
         | "PENDING"
         | "CONFIRMED"
+        | "ARRIVED"
         | "SEATED"
         | "COMPLETED"
         | "CANCELLED"
         | "NO_SHOW";
       notification_channel: "EMAIL" | "SMS" | "WHATSAPP" | "IN_APP";
-      notification_status: "PENDING" | "SENT" | "FAILED";
+      notification_status:
+        "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
       subscription_status:
         "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
     };
@@ -1276,6 +1579,8 @@ export const DATABASE_TABLES = [
   "qr_codes",
   "reservations",
   "notifications",
+  "notification_reads",
+  "customer_notification_preferences",
   "subscriptions",
   "audit_logs",
   "restaurant_settings",

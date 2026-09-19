@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import { AppLogo } from "@/components/common/AppLogo";
 import { DASHBOARD_NAV } from "@/lib/constants";
+import { canViewAnalytics } from "@/lib/utils/analytics";
+import type { MemberRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
 const iconMap = {
@@ -32,15 +34,22 @@ const iconMap = {
 type SidebarProps = {
   className?: string;
   onNavigate?: () => void;
+  role?: MemberRole | null;
 };
 
-export function Sidebar({ className, onNavigate }: SidebarProps) {
+export function Sidebar({ className, onNavigate, role = null }: SidebarProps) {
   const pathname = usePathname();
+  const items = DASHBOARD_NAV.filter((item) => {
+    if (item.href === "/dashboard/analytics") {
+      return role ? canViewAnalytics(role) : true;
+    }
+    return true;
+  });
 
   return (
     <aside
       className={cn(
-        "border-border bg-sidebar text-sidebar-foreground flex h-full min-h-0 w-64 shrink-0 flex-col border-r",
+        "border-border bg-sidebar text-sidebar-foreground flex h-full min-h-0 w-64 shrink-0 flex-col overflow-hidden border-r",
         className,
       )}
     >
@@ -55,7 +64,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
         aria-label="Dashboard"
       >
         <ul className="space-y-1">
-          {DASHBOARD_NAV.map((item) => {
+          {items.map((item) => {
             const Icon = iconMap[item.icon as keyof typeof iconMap];
             const active =
               pathname === item.href ||

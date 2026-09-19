@@ -5,6 +5,8 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { Select } from "@/components/ui/select";
 import {
+  actualWaitMinutes,
+  formatActualWaitMinutes,
   isHistoryEntry,
   queueEntryStatusLabel,
   queueEntryStatusTone,
@@ -76,7 +78,7 @@ export function QueueHistory({
             setStatus((event.target.value as QueueEntryStatus | "all") ?? "all")
           }
           aria-label="Filter history by status"
-          className="max-w-48"
+          className="w-full sm:max-w-48"
         >
           <option value="all">Processed today</option>
           {QUEUE_HISTORY_STATUSES.map((value) => (
@@ -101,6 +103,7 @@ export function QueueHistory({
                   <th className="px-3 py-2 font-medium">Customer</th>
                   <th className="px-3 py-2 font-medium">Party</th>
                   <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Wait</th>
                   <th className="px-3 py-2 font-medium">Joined</th>
                   <th className="px-3 py-2 font-medium">Called</th>
                   <th className="px-3 py-2 font-medium">Seated</th>
@@ -126,6 +129,9 @@ export function QueueHistory({
                         label={queueEntryStatusLabel(entry.status)}
                         tone={queueEntryStatusTone(entry.status)}
                       />
+                    </td>
+                    <td className="px-3 py-2 tabular-nums">
+                      {formatActualWaitMinutes(actualWaitMinutes(entry))}
                     </td>
                     <td className="px-3 py-2">
                       {stamp(entry.joined_at, timezone, dateFormat, timeFormat)}
@@ -170,6 +176,7 @@ export function QueueHistory({
                   {entry.customer?.name ?? "Guest"} · party {entry.party_size}
                 </p>
                 <p className="text-muted-foreground mt-1 text-xs">
+                  Wait {formatActualWaitMinutes(actualWaitMinutes(entry))} ·
                   Joined{" "}
                   {stamp(entry.joined_at, timezone, dateFormat, timeFormat)}
                 </p>

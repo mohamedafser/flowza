@@ -21,6 +21,7 @@ const withPWA = withPWAInit({
             url.pathname.startsWith("/dashboard") ||
             url.pathname.startsWith("/settings") ||
             url.pathname.startsWith("/onboarding") ||
+            url.pathname.startsWith("/api/notifications") ||
             url.pathname === "/login" ||
             url.pathname === "/signup" ||
             url.pathname === "/forgot-password" ||
@@ -29,6 +30,7 @@ const withPWA = withPWAInit({
             url.pathname.includes("/queue") ||
             url.pathname.includes("/tables") ||
             url.pathname.includes("/customers") ||
+            url.pathname.includes("/reservations") ||
             url.pathname.includes("/realtime")),
         handler: "NetworkOnly",
       },

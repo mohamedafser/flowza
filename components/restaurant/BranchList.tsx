@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
+import { Pencil } from "lucide-react";
 import {
   listBranchesRequest,
   setBranchStatusRequest,
@@ -307,14 +308,16 @@ export function BranchList({ canManage }: BranchListProps) {
                     {branch.country ? ` · ${branch.country}` : ""}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon-sm"
                     render={<Link href={`/settings/branches/${branch.id}`} />}
                     nativeButton={false}
+                    aria-label={`Edit ${branch.name}`}
+                    title="Edit"
                   >
-                    View
+                    <Pencil />
                   </Button>
                   {canManage ? (
                     <Button

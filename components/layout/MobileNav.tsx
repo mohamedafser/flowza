@@ -12,9 +12,14 @@ import {
 } from "@/components/ui/sheet";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { APP_NAME } from "@/lib/constants";
+import type { MemberRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
-export function MobileNav() {
+type MobileNavProps = {
+  role?: MemberRole | null;
+};
+
+export function MobileNav({ role = null }: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -35,6 +40,7 @@ export function MobileNav() {
         </SheetHeader>
         <Sidebar
           className="w-full border-r-0"
+          role={role}
           onNavigate={() => setOpen(false)}
         />
       </SheetContent>

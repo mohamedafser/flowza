@@ -20,8 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
-import { CURRENCIES } from "@/lib/utils/currency";
-import { DATE_FORMATS, LANGUAGES, TIME_FORMATS } from "@/lib/utils/datetime";
+import { DATE_FORMATS, TIME_FORMATS } from "@/lib/utils/datetime";
 import { timezoneOptions } from "@/lib/utils/timezone";
 import {
   generalSettingsSchema,
@@ -35,18 +34,6 @@ type GeneralSettingsFormProps = {
   settings: RestaurantSettings;
   canManage: boolean;
 };
-
-function asCurrency(value: string): GeneralSettingsValues["currency"] {
-  return (CURRENCIES as readonly string[]).includes(value)
-    ? (value as GeneralSettingsValues["currency"])
-    : "USD";
-}
-
-function asLanguage(value: string): GeneralSettingsValues["defaultLanguage"] {
-  return LANGUAGES.some((language) => language.code === value)
-    ? (value as GeneralSettingsValues["defaultLanguage"])
-    : "en";
-}
 
 function asDateFormat(value: string): GeneralSettingsValues["dateFormat"] {
   return (DATE_FORMATS as readonly string[]).includes(value)
@@ -77,9 +64,7 @@ export function GeneralSettingsForm({
       phone: restaurant.phone ?? "",
       website: restaurant.website ?? "",
       description: restaurant.description ?? "",
-      currency: asCurrency(restaurant.currency),
       timezone: restaurant.timezone || "UTC",
-      defaultLanguage: asLanguage(settings.default_language),
       dateFormat: asDateFormat(settings.date_format),
       timeFormat: asTimeFormat(settings.time_format),
     },
@@ -204,56 +189,26 @@ export function GeneralSettingsForm({
           <CardHeader>
             <CardTitle>Locale</CardTitle>
             <CardDescription>
-              Currency, timezone, language, and how dates and times are shown.
+              Timezone and how dates and times are shown.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="currency">Currency</Label>
-                <Select
-                  id="currency"
-                  disabled={disabled}
-                  {...form.register("currency")}
-                >
-                  {CURRENCIES.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select
-                  id="timezone"
-                  disabled={disabled}
-                  {...form.register("timezone")}
-                >
-                  {zones.map((zone) => (
-                    <option key={zone} value={zone}>
-                      {zone}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="timezone">Timezone</Label>
+              <Select
+                id="timezone"
+                disabled={disabled}
+                {...form.register("timezone")}
+              >
+                {zones.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </Select>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="defaultLanguage">Default language</Label>
-                <Select
-                  id="defaultLanguage"
-                  disabled={disabled}
-                  {...form.register("defaultLanguage")}
-                >
-                  {LANGUAGES.map((language) => (
-                    <option key={language.code} value={language.code}>
-                      {language.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="dateFormat">Date format</Label>
                 <Select

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { emailSchema } from "@/lib/validations/auth";
 import { normalizeEmail } from "@/lib/utils/email";
-import { isValidNormalizedPhone, normalizePhone } from "@/lib/utils/phone";
+import { isValidPhoneInput, normalizePhone } from "@/lib/utils/phone";
 
 export const CUSTOMER_NAME_MAX = 120;
 export const CUSTOMER_PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
@@ -32,7 +32,7 @@ function emptyToString(value: unknown): unknown {
   return value == null ? "" : value;
 }
 
-const optionalPhoneInput = z.preprocess(
+const requiredPhoneInput = z.preprocess(
   emptyToString,
   z
     .string()
@@ -40,17 +40,26 @@ const optionalPhoneInput = z.preprocess(
     .max(30, "Phone is too long")
     .superRefine((value, ctx) => {
       if (value === "") {
-        return;
-      }
-      const normalized = normalizePhone(value);
-      if (!normalized || !isValidNormalizedPhone(normalized)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Enter a valid phone number",
+          message: "Phone number is required.",
+        });
+        return;
+      }
+      if (!isValidPhoneInput(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid phone number.",
         });
       }
     })
-    .transform((value) => (value === "" ? null : normalizePhone(value))),
+    .transform((value) => {
+      const normalized = normalizePhone(value);
+      if (!normalized) {
+        throw new Error("Phone number is required.");
+      }
+      return normalized;
+    }),
 );
 
 const optionalEmailInput = z.preprocess(
@@ -82,13 +91,16 @@ export const customerFieldsSchema = z.object({
     .max(30, "Phone is too long")
     .superRefine((value, ctx) => {
       if (value === "") {
-        return;
-      }
-      const normalized = normalizePhone(value);
-      if (!normalized || !isValidNormalizedPhone(normalized)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: "Enter a valid phone number",
+          message: "Phone number is required.",
+        });
+        return;
+      }
+      if (!isValidPhoneInput(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Please enter a valid phone number.",
         });
       }
     }),
@@ -114,7 +126,7 @@ export type CustomerFormValues = z.infer<typeof customerFieldsSchema>;
 
 export const createCustomerSchema = z.object({
   name: customerNameSchema,
-  phone: optionalPhoneInput,
+  phone: requiredPhoneInput,
   email: optionalEmailInput,
 });
 

@@ -40,6 +40,7 @@ export type CustomerDuplicateMatch = "phone" | "email";
 export type CustomerDuplicate = {
   id: string;
   name: string;
+  phone: string | null;
   match: CustomerDuplicateMatch;
 };
 
@@ -291,10 +292,20 @@ export function findDuplicateCustomer(
     }
     const match = duplicateMatchFor(customer, input);
     if (match === "phone") {
-      return { id: customer.id, name: customer.name, match };
+      return {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        match,
+      };
     }
     if (match === "email" && !emailMatch) {
-      emailMatch = { id: customer.id, name: customer.name, match };
+      emailMatch = {
+        id: customer.id,
+        name: customer.name,
+        phone: customer.phone,
+        match,
+      };
     }
   }
 
@@ -305,7 +316,7 @@ export function duplicateCustomerMessage(
   match: CustomerDuplicateMatch,
 ): string {
   return match === "phone"
-    ? "A customer with this phone already exists."
+    ? "Customer already exists."
     : "A customer with this email already exists.";
 }
 

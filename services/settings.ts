@@ -8,6 +8,7 @@ import type {
   GeneralSettingsValues,
   QueueSettingsValues,
 } from "@/lib/validations/settings";
+import type { NotificationSettingsValues } from "@/lib/validations/notifications";
 import { toRestaurantPayload } from "@/lib/validations/restaurant";
 import { writeAuditLog } from "@/services/audit";
 import { createClient } from "@/lib/supabase/server";
@@ -130,7 +131,6 @@ export async function updateGeneralSettings(
       phone: restaurantPayload.phone,
       website: restaurantPayload.website,
       description: restaurantPayload.description,
-      currency: restaurantPayload.currency,
       timezone: restaurantPayload.timezone,
     })
     .eq("id", restaurantId)
@@ -163,7 +163,6 @@ export async function updateGeneralSettings(
     .eq("use_restaurant_timezone", true);
 
   const settingsResult = await persistSettings(restaurantId, {
-    default_language: input.defaultLanguage,
     date_format: input.dateFormat,
     time_format: input.timeFormat,
   });
@@ -180,7 +179,6 @@ export async function updateGeneralSettings(
     entityId: restaurantId,
     metadata: {
       name: restaurantPayload.name,
-      currency: restaurantPayload.currency,
       timezone: restaurantPayload.timezone,
       dateFormat: input.dateFormat,
       timeFormat: input.timeFormat,
@@ -258,6 +256,49 @@ export async function updateCustomerExperienceSettings(
       showEstimatedWait: input.showEstimatedWait,
       showQueuePosition: input.showQueuePosition,
       allowSelfCheckIn: input.allowSelfCheckIn,
+    },
+  });
+
+  return result;
+}
+
+export async function updateNotificationSettings(
+  restaurantId: string,
+  input: NotificationSettingsValues,
+): Promise<SettingsMutationResult<RestaurantSettings>> {
+  const context = await requirePermission(restaurantId, "restaurant.manage");
+  const result = await persistSettings(restaurantId, {
+    notifications_email_enabled: input.notificationsEmailEnabled,
+    notifications_whatsapp_enabled: input.notificationsWhatsappEnabled,
+    notifications_sms_enabled: input.notificationsSmsEnabled,
+    notifications_in_app_enabled: input.notificationsInAppEnabled,
+    notify_customer_on_join: input.notifyCustomerOnJoin,
+    notify_customer_on_called: input.notifyCustomerOnCalled,
+    notify_customer_on_reminder: input.notifyCustomerOnReminder,
+    notify_staff_on_join: input.notifyStaffOnJoin,
+    notify_staff_on_cancel: input.notifyStaffOnCancel,
+    notify_staff_on_no_show: input.notifyStaffOnNoShow,
+    notify_staff_queue_busy_threshold: input.notifyStaffQueueBusyThreshold,
+  });
+
+  if (!result.ok) {
+    return result;
+  }
+
+  await writeAuditLog({
+    restaurantId,
+    userId: context.user.id,
+    action: "restaurant.notification_settings_updated",
+    entityType: "restaurant_settings",
+    entityId: restaurantId,
+    metadata: {
+      emailEnabled: input.notificationsEmailEnabled,
+      whatsappEnabled: input.notificationsWhatsappEnabled,
+      smsEnabled: input.notificationsSmsEnabled,
+      inAppEnabled: input.notificationsInAppEnabled,
+      notifyCustomerOnJoin: input.notifyCustomerOnJoin,
+      notifyCustomerOnCalled: input.notifyCustomerOnCalled,
+      notifyStaffOnJoin: input.notifyStaffOnJoin,
     },
   });
 

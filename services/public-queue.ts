@@ -12,12 +12,16 @@ import {
   toPublicQueueStatus,
 } from "@/lib/public-queue/dto";
 import { isValidPublicAccessToken } from "@/lib/public-queue/paths";
-import { joinPublicQueueSchema } from "@/lib/validations/public-queue";
+import {
+  joinPublicQueueSchema,
+  publicBranchSlugParamsSchema,
+} from "@/lib/validations/public-queue";
 import type {
   PublicQueueInfo,
   PublicQueueJoinResponse,
   PublicQueueStatusResponse,
 } from "@/lib/public-queue/types";
+import { z } from "zod";
 
 export type PublicQueueResult<T> =
   { ok: true; data: T } | { ok: false; code: ActionErrorCode; message: string };
@@ -189,6 +193,11 @@ export async function joinPublicQueue(input: {
     };
   }
 
+  if (!mapped.data.reused) {
+    const { notifyQueueJoined } = await import("@/lib/notifications/queue");
+    notifyQueueJoined(mapped.data.entry.id);
+  }
+
   return { ok: true, data: toPublicQueueJoin(mapped.data) };
 }
 
@@ -263,5 +272,156 @@ export async function cancelPublicQueueEntry(
     };
   }
 
+  const { notifyQueueCancelled } = await import("@/lib/notifications/queue");
+  notifyQueueCancelled(parsed.data.entry.id);
+
   return { ok: true, data: toPublicQueueStatus(parsed.data) };
+}
+
+function sanitizePublicCustomerSearch(value: string): string {
+  return value
+    .trim()
+    .replace(/[%_]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 120);
+}
+
+const publicCustomerSearchResultSchema = z.object({
+  name: z.string().min(1).max(120),
+  phone: z.string().nullable(),
+});
+
+const publicCustomerSearchListSchema = z.array(publicCustomerSearchResultSchema);
+
+function isMissingRpcError(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    error.code === "PGRST202" ||
+    /could not find the function/i.test(error.message ?? "") ||
+    /search_public_queue_customers/i.test(error.message ?? "")
+  );
+}
+
+function escapePostgrestFilterValue(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+async function searchCustomersAsMember(
+  restaurantSlug: string,
+  query: string,
+): Promise<PublicQueueResult<{
+  customers: Array<{ name: string; phone: string | null }>;
+}> | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: restaurant, error: restaurantError } = await supabase
+    .from("restaurants")
+    .select("id")
+    .eq("slug", restaurantSlug)
+    .eq("status", "ACTIVE")
+    .maybeSingle();
+
+  if (restaurantError || !restaurant) {
+    return null;
+  }
+
+  const pattern = `%${escapePostgrestFilterValue(query)}%`;
+  const { data, error } = await supabase
+    .from("customers")
+    .select("name, phone")
+    .eq("restaurant_id", restaurant.id)
+    .or(`name.ilike."${pattern}",phone.ilike."${pattern}"`)
+    .order("name", { ascending: true })
+    .limit(5);
+
+  if (error) {
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      message: PUBLIC_QUEUE_MESSAGES.unexpected,
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      customers: (data ?? []).map((row) => ({
+        name: row.name,
+        phone: row.phone,
+      })),
+    },
+  };
+}
+
+export async function searchPublicQueueCustomers(input: {
+  restaurantSlug: string;
+  branchSlug: string;
+  query: string;
+}): Promise<
+  PublicQueueResult<{
+    customers: Array<{ name: string; phone: string | null }>;
+  }>
+> {
+  const params = publicBranchSlugParamsSchema.safeParse({
+    restaurantSlug: input.restaurantSlug,
+    branchSlug: input.branchSlug,
+  });
+  if (!params.success) {
+    return {
+      ok: false,
+      code: "NOT_FOUND",
+      message: PUBLIC_QUEUE_MESSAGES.notFound,
+    };
+  }
+
+  const query = sanitizePublicCustomerSearch(input.query);
+  if (query.length < 2) {
+    return { ok: true, data: { customers: [] } };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("search_public_queue_customers", {
+    p_restaurant_slug: params.data.restaurantSlug,
+    p_branch_slug: params.data.branchSlug,
+    p_query: query,
+  });
+
+  if (!error) {
+    if (data == null) {
+      return {
+        ok: false,
+        code: "NOT_FOUND",
+        message: PUBLIC_QUEUE_MESSAGES.notFound,
+      };
+    }
+
+    const parsed = publicCustomerSearchListSchema.safeParse(data);
+    if (!parsed.success) {
+      return {
+        ok: false,
+        code: "UNKNOWN",
+        message: PUBLIC_QUEUE_MESSAGES.unexpected,
+      };
+    }
+
+    return { ok: true, data: { customers: parsed.data } };
+  }
+
+  // RPC not applied yet: fall back to member RLS search when a staff session
+  // is present (local QR testing). True anonymous guests need the migration.
+  if (isMissingRpcError(error)) {
+    const memberResult = await searchCustomersAsMember(
+      params.data.restaurantSlug,
+      query,
+    );
+    if (memberResult) {
+      return memberResult;
+    }
+  }
+
+  return mapPublicQueueError(error, PUBLIC_QUEUE_MESSAGES.unexpected);
 }

@@ -130,34 +130,57 @@ export function QueueEntryDetails({
           </div>
         ) : null}
         {canManage && actions ? (
-          <DialogFooter className="flex-wrap">
+          <DialogFooter className="gap-2 sm:flex-wrap">
             {actions.canCall ? (
-              <Button disabled={pending} onClick={onCall}>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={pending}
+                onClick={onCall}
+              >
                 Call
               </Button>
             ) : null}
             {actions.canSeat ? (
-              <Button disabled={pending} onClick={onSeat}>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={pending}
+                onClick={onSeat}
+              >
                 Seat
               </Button>
             ) : null}
             {actions.canComplete ? (
-              <Button disabled={pending} onClick={onComplete}>
+              <Button
+                className="w-full sm:w-auto"
+                disabled={pending}
+                onClick={onComplete}
+              >
                 Complete
               </Button>
             ) : null}
             {actions.canSkip ? (
-              <Button variant="outline" disabled={pending} onClick={onSkip}>
+              <Button
+                className="w-full sm:w-auto"
+                variant="outline"
+                disabled={pending}
+                onClick={onSkip}
+              >
                 Skip
               </Button>
             ) : null}
             {actions.canNoShow ? (
-              <Button variant="outline" disabled={pending} onClick={onNoShow}>
+              <Button
+                className="w-full sm:w-auto"
+                variant="outline"
+                disabled={pending}
+                onClick={onNoShow}
+              >
                 No show
               </Button>
             ) : null}
             {actions.canCancel ? (
               <Button
+                className="w-full sm:w-auto"
                 variant="destructive"
                 disabled={pending}
                 onClick={onCancel}

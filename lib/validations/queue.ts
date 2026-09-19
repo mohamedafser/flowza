@@ -136,8 +136,14 @@ export const addCustomerToQueueSchema = z
     partySize: partySizeSchema,
     customerId: z.string().uuid("Invalid customer").optional().nullable(),
     name: customerNameSchema.optional(),
-    phone: createCustomerSchema.shape.phone.optional(),
-    email: createCustomerSchema.shape.email.optional(),
+    phone: z.preprocess(
+      (value) => (value === null || value === undefined ? undefined : value),
+      createCustomerSchema.shape.phone.optional(),
+    ),
+    email: z.preprocess(
+      (value) => (value === null || value === undefined ? undefined : value),
+      createCustomerSchema.shape.email.optional(),
+    ),
   })
   .superRefine((value, ctx) => {
     if (value.customerId) {
@@ -148,6 +154,13 @@ export const addCustomerToQueueSchema = z
         code: z.ZodIssueCode.custom,
         message: "Select a customer or enter a name",
         path: ["name"],
+      });
+    }
+    if (!value.phone) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Phone number is required.",
+        path: ["phone"],
       });
     }
   });
@@ -196,22 +209,14 @@ export type SearchQueueCustomersInput = z.infer<
 
 export const addCustomerFormSchema = z
   .object({
-    mode: z.enum(["existing", "new"]),
-    customerId: z.string(),
+    customerId: z.string().optional(),
     name: z.string(),
     phone: z.string(),
     email: z.string(),
     partySize: partySizeSchema,
   })
   .superRefine((value, ctx) => {
-    if (value.mode === "existing") {
-      if (!z.string().uuid().safeParse(value.customerId).success) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Select a customer",
-          path: ["customerId"],
-        });
-      }
+    if (value.customerId && z.string().uuid().safeParse(value.customerId).success) {
       return;
     }
     if (!value.name.trim()) {
@@ -219,6 +224,15 @@ export const addCustomerFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "Name is required",
         path: ["name"],
+      });
+    }
+    const phoneResult = createCustomerSchema.shape.phone.safeParse(value.phone);
+    if (!phoneResult.success) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          phoneResult.error.issues[0]?.message ?? "Phone number is required.",
+        path: ["phone"],
       });
     }
   });

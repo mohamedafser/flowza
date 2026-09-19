@@ -10,7 +10,6 @@ import {
 import { safeDatabaseMessage } from "@/lib/errors/action";
 import { createClient } from "@/lib/supabase/server";
 import { slugify, uniqueSlug } from "@/lib/utils/slug";
-import type { RestaurantFormValues } from "@/lib/validations/restaurant";
 import { writeAuditLog } from "@/services/audit";
 
 export type RestaurantWritePayload = {
@@ -19,7 +18,6 @@ export type RestaurantWritePayload = {
   phone: string;
   website: string | null;
   description: string | null;
-  currency: RestaurantFormValues["currency"];
   timezone: string;
 };
 
@@ -93,7 +91,6 @@ async function createRestaurantViaRpc(
     p_phone: input.phone,
     p_website: input.website,
     p_description: input.description,
-    p_currency: input.currency,
     p_timezone: input.timezone,
   });
 
@@ -130,7 +127,6 @@ async function createRestaurantDirect(
     phone: input.phone,
     website: input.website,
     description: input.description,
-    currency: input.currency,
     timezone: input.timezone,
     status: "ACTIVE",
   });
@@ -334,7 +330,6 @@ export async function updateRestaurant(
       phone: input.phone,
       website: input.website,
       description: input.description,
-      currency: input.currency,
       timezone: input.timezone,
     })
     .eq("id", restaurantId)

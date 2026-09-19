@@ -13,6 +13,7 @@ import type {
   RealtimeConnectionStatus,
 } from "@/lib/realtime/types";
 import {
+  ensureRealtimeAuth,
   getRealtimeBrowserClient,
   mapChannelSubscribeStatus,
   unsubscribeChannel,
@@ -46,32 +47,38 @@ export function subscribeToTables(
   let cleaned = false;
 
   onStatus?.("connecting");
-  channel = client
-    .channel(topic)
-    .on(
-      "postgres_changes",
-      {
-        event: "*",
-        schema: "public",
-        table: "restaurant_tables",
-        filter: `branch_id=eq.${branchId}`,
-      },
-      (payload) => {
-        const change = toRealtimeChange(payload, "restaurant_tables");
-        if (!change) return;
-        if (!shouldRefreshTablesForChange(change, { branchId })) return;
-        if (!accept(change)) return;
-        onChange(change);
-      },
-    )
-    .subscribe((status) => {
-      if (cleaned) return;
-      const mapped = mapChannelSubscribeStatus(status, previousConnected);
-      if (mapped === "connected") {
-        previousConnected = true;
-      }
-      onStatus?.(mapped);
-    });
+
+  void (async () => {
+    await ensureRealtimeAuth(client);
+    if (cleaned) return;
+
+    channel = client
+      .channel(topic)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "restaurant_tables",
+          filter: `branch_id=eq.${branchId}`,
+        },
+        (payload) => {
+          const change = toRealtimeChange(payload, "restaurant_tables");
+          if (!change) return;
+          if (!shouldRefreshTablesForChange(change, { branchId })) return;
+          if (!accept(change)) return;
+          onChange(change);
+        },
+      )
+      .subscribe((status) => {
+        if (cleaned) return;
+        const mapped = mapChannelSubscribeStatus(status, previousConnected);
+        if (mapped === "connected") {
+          previousConnected = true;
+        }
+        onStatus?.(mapped);
+      });
+  })();
 
   return () => {
     cleaned = true;

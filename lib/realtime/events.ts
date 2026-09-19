@@ -15,6 +15,7 @@ const REALTIME_SOURCES = new Set<RealtimeChangeSource>([
   "queue_events",
   "queues",
   "restaurant_tables",
+  "reservations",
   "broadcast",
 ]);
 
@@ -190,6 +191,14 @@ export function shouldRefreshTablesForChange(
   scope: { branchId: string },
 ): boolean {
   if (change.source !== "restaurant_tables") return false;
+  return !change.branchId || change.branchId === scope.branchId;
+}
+
+export function shouldRefreshReservationsForChange(
+  change: RealtimeChange,
+  scope: { branchId: string },
+): boolean {
+  if (change.source !== "reservations") return false;
   return !change.branchId || change.branchId === scope.branchId;
 }
 

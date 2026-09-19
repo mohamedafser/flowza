@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 type SearchInputProps = {
+  id?: string;
   value?: string;
   defaultValue?: string;
   onChange?: (value: string) => void;
@@ -15,6 +16,7 @@ type SearchInputProps = {
 };
 
 export function SearchInput({
+  id,
   value,
   defaultValue,
   onChange,
@@ -27,6 +29,7 @@ export function SearchInput({
     <div className={cn("relative w-full max-w-sm", className)}>
       <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2" />
       <Input
+        id={id}
         name={name}
         value={value}
         defaultValue={defaultValue}

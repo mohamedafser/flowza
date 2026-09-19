@@ -57,6 +57,7 @@ export class MemoryRateLimiter {
 
 export const PUBLIC_QUEUE_RATE_LIMITS = {
   discovery: { limit: 60, windowMs: 60_000 },
+  search: { limit: 30, windowMs: 60_000 },
   join: { limit: 8, windowMs: 60_000 },
   status: { limit: 30, windowMs: 60_000 },
   cancel: { limit: 8, windowMs: 60_000 },

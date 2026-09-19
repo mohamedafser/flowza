@@ -101,6 +101,7 @@ export type QueueEntryMutationResult =
 export type QueueCustomerSearchResult = {
   id: string;
   name: string;
+  phone: string | null;
 };
 
 type QueueRow = Tables<"queues">;
@@ -509,9 +510,6 @@ export async function searchQueueCustomers(
   query: string,
 ): Promise<QueueCustomerSearchResult[]> {
   const trimmed = sanitizeSearchTerm(query);
-  if (!trimmed) {
-    return [];
-  }
 
   const auth = await requireVerifiedAuth();
   if (!auth.restaurant) {
@@ -523,19 +521,34 @@ export async function searchQueueCustomers(
 
   await requirePermission(auth.restaurant.id, "queue.view");
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .select("id, name")
-    .eq("restaurant_id", auth.restaurant.id)
-    .or(`name.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
-    .order("name", { ascending: true })
-    .limit(20);
+
+  // Empty query → 5 most recently updated customers for quick pick.
+  const request = trimmed
+    ? supabase
+        .from("customers")
+        .select("id, name, phone")
+        .eq("restaurant_id", auth.restaurant.id)
+        .or(`name.ilike.%${trimmed}%,phone.ilike.%${trimmed}%`)
+        .order("name", { ascending: true })
+        .limit(20)
+    : supabase
+        .from("customers")
+        .select("id, name, phone")
+        .eq("restaurant_id", auth.restaurant.id)
+        .order("updated_at", { ascending: false })
+        .limit(5);
+
+  const { data, error } = await request;
 
   if (error || !data) {
     return [];
   }
 
-  return data.map((row) => ({ id: row.id, name: row.name }));
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+  }));
 }
 
 export async function createQueue(
@@ -759,31 +772,38 @@ export async function addCustomerToQueue(
       };
     }
   } else {
+    const name = input.name?.trim() ?? "";
+    if (!name) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: "Customer name is required.",
+      };
+    }
+    if (!input.phone) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: "Phone number is required.",
+      };
+    }
+
     const duplicate = await findPotentialDuplicateCustomer(
       loaded.branch.restaurant_id,
       {
-        phone: input.phone ?? null,
+        phone: input.phone,
         email: input.email ?? null,
       },
     );
     if (duplicate) {
       customerId = duplicate.id;
     } else {
-      const name = input.name?.trim() ?? "";
-      if (!name) {
-        return {
-          ok: false,
-          code: "VALIDATION",
-          message: "Customer name is required.",
-        };
-      }
-
       const { data, error } = await supabase
         .from("customers")
         .insert({
           restaurant_id: loaded.branch.restaurant_id,
           name,
-          phone: input.phone ?? null,
+          phone: input.phone,
           email: input.email ?? null,
         })
         .select("id")
@@ -793,7 +813,7 @@ export async function addCustomerToQueue(
         const raced = await findPotentialDuplicateCustomer(
           loaded.branch.restaurant_id,
           {
-            phone: input.phone ?? null,
+            phone: input.phone,
             email: input.email ?? null,
           },
         );
@@ -821,7 +841,7 @@ export async function addCustomerToQueue(
           entityId: customerId,
           metadata: {
             source: "queue",
-            hasPhone: Boolean(input.phone),
+            hasPhone: true,
             hasEmail: Boolean(input.email),
           },
         });
@@ -857,6 +877,9 @@ export async function addCustomerToQueue(
     },
   });
 
+  const { notifyQueueJoined } = await import("@/lib/notifications/queue");
+  notifyQueueJoined(entry.id);
+
   return { ok: true, entry };
 }
 
@@ -886,6 +909,9 @@ export async function callNextQueueEntry(
     entityId: entry.id,
     metadata: { queueId: loaded.queue.id, branchId: loaded.branch.id },
   });
+
+  const { notifyQueueCalled } = await import("@/lib/notifications/queue");
+  notifyQueueCalled(entry.id);
 
   return { ok: true, entry };
 }
@@ -976,6 +1002,20 @@ async function transitionEntry(
     entityId: entry.id,
     metadata,
   });
+
+  if (toStatus === "CALLED") {
+    const { notifyQueueCalled } = await import("@/lib/notifications/queue");
+    notifyQueueCalled(entry.id);
+  } else if (toStatus === "CANCELLED") {
+    const { notifyQueueCancelled } = await import("@/lib/notifications/queue");
+    notifyQueueCancelled(entry.id);
+  } else if (toStatus === "NO_SHOW") {
+    const { notifyQueueNoShow } = await import("@/lib/notifications/queue");
+    notifyQueueNoShow(entry.id);
+  } else if (toStatus === "SEATED") {
+    const { notifyQueueSeated } = await import("@/lib/notifications/queue");
+    notifyQueueSeated(entry.id);
+  }
 
   return { ok: true, entry };
 }

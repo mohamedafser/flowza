@@ -11,6 +11,11 @@ export const TABLE_CHANNEL_PATTERN = new RegExp(
   "i",
 );
 
+export const RESERVATION_CHANNEL_PATTERN = new RegExp(
+  `^restaurant:${UUID_PATTERN}:branch:${UUID_PATTERN}:reservations$`,
+  "i",
+);
+
 const FORBIDDEN_CHANNEL_PATTERNS = [
   /phone/i,
   /email/i,
@@ -31,6 +36,13 @@ export function createTableChannel(
   branchId: string,
 ): string {
   return `restaurant:${restaurantId}:branch:${branchId}:tables`;
+}
+
+export function createReservationChannel(
+  restaurantId: string,
+  branchId: string,
+): string {
+  return `restaurant:${restaurantId}:branch:${branchId}:reservations`;
 }
 
 export function parseQueueChannel(
@@ -57,13 +69,29 @@ export function parseTableChannel(
   return { restaurantId, branchId };
 }
 
+export function parseReservationChannel(
+  channel: string,
+): { restaurantId: string; branchId: string } | null {
+  const match = channel.trim().match(RESERVATION_CHANNEL_PATTERN);
+  if (!match) return null;
+  const parts = channel.split(":");
+  const restaurantId = parts[1];
+  const branchId = parts[3];
+  if (!restaurantId || !branchId) return null;
+  return { restaurantId, branchId };
+}
+
 export function isSafeRealtimeChannel(channel: string): boolean {
   const value = channel.trim();
   if (!value) return false;
   if (FORBIDDEN_CHANNEL_PATTERNS.some((pattern) => pattern.test(value))) {
     return false;
   }
-  return QUEUE_CHANNEL_PATTERN.test(value) || TABLE_CHANNEL_PATTERN.test(value);
+  return (
+    QUEUE_CHANNEL_PATTERN.test(value) ||
+    TABLE_CHANNEL_PATTERN.test(value) ||
+    RESERVATION_CHANNEL_PATTERN.test(value)
+  );
 }
 
 export function assertSafeRealtimeChannel(channel: string): string {

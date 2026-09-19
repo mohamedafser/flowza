@@ -1,9 +1,7 @@
 import { z } from "zod";
 import { emailSchema } from "@/lib/validations/auth";
-import { CURRENCIES, type CurrencyCode } from "@/lib/utils/currency";
 import { TIMEZONES, isValidTimezone } from "@/lib/utils/timezone";
 
-export { CURRENCIES, type CurrencyCode };
 export { TIMEZONES, isValidTimezone };
 
 export const phoneSchema = z
@@ -54,10 +52,6 @@ export const timezoneSchema = z
   .min(1, "Timezone is required")
   .refine(isValidTimezone, "Select a valid timezone");
 
-export const currencySchema = z.enum(CURRENCIES, {
-  errorMap: () => ({ message: "Select a valid currency" }),
-});
-
 export const slugSchema = z
   .string()
   .trim()
@@ -80,7 +74,6 @@ export const restaurantFormSchema = z.object({
   phone: phoneSchema,
   website: websiteSchema,
   description: z.string().trim().max(1000, "Description is too long"),
-  currency: currencySchema,
   timezone: timezoneSchema,
 });
 
@@ -103,7 +96,6 @@ export function toRestaurantPayload(values: RestaurantFormValues) {
     phone: values.phone,
     website: normalizeWebsite(values.website),
     description: values.description === "" ? null : values.description,
-    currency: values.currency,
     timezone: values.timezone,
   };
 }

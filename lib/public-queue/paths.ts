@@ -48,6 +48,13 @@ export function publicQueueJoinApiPath(
   return `${publicQueueInfoApiPath(restaurantSlug, branchSlug)}/join`;
 }
 
+export function publicQueueSearchApiPath(
+  restaurantSlug: string,
+  branchSlug: string,
+): string {
+  return `${publicQueueInfoApiPath(restaurantSlug, branchSlug)}/customers`;
+}
+
 export function publicQueueStatusApiPath(accessToken: string): string {
   return `${PUBLIC_QUEUE_API_ROOT}/queue/${encodeURIComponent(accessToken)}`;
 }

@@ -24,7 +24,7 @@ export default async function GeneralSettingsPage() {
     <div>
       <PageHeader
         title="General"
-        description="Restaurant identity, contact details, currency, timezone, and date formats."
+        description="Restaurant identity, contact details, timezone, and date formats."
         breadcrumbs={SETTINGS_GENERAL_BREADCRUMBS}
         actions={
           <StatusBadge

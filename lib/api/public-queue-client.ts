@@ -4,6 +4,7 @@ import {
   publicQueueCancelApiPath,
   publicQueueInfoApiPath,
   publicQueueJoinApiPath,
+  publicQueueSearchApiPath,
   publicQueueStatusApiPath,
 } from "@/lib/public-queue/paths";
 import type { ActionResult } from "@/lib/errors/action";
@@ -12,6 +13,7 @@ import type {
   PublicQueueJoinResponse,
   PublicQueueStatusResponse,
 } from "@/lib/public-queue/types";
+import type { PublicQueueCustomerSearchResult } from "@/lib/validations/public-queue";
 
 export async function fetchPublicQueueInfo(
   restaurantSlug: string,
@@ -27,6 +29,35 @@ export async function fetchPublicQueueInfo(
       },
     );
     return parseJsonResult<PublicQueueInfo>(response);
+  } catch {
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      message: "Network error. Check your connection and try again.",
+    };
+  }
+}
+
+export async function searchPublicQueueCustomersRequest(input: {
+  restaurantSlug: string;
+  branchSlug: string;
+  query: string;
+}): Promise<ActionResult<{ customers: PublicQueueCustomerSearchResult[] }>> {
+  try {
+    const path = publicQueueSearchApiPath(
+      input.restaurantSlug,
+      input.branchSlug,
+    );
+    const params = new URLSearchParams({ query: input.query });
+    const response = await fetch(`${path}?${params.toString()}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    return parseJsonResult<{ customers: PublicQueueCustomerSearchResult[] }>(
+      response,
+    );
   } catch {
     return {
       ok: false,

@@ -308,6 +308,45 @@ export function formatWaitMinutes(minutes: number | null): string {
   return `${hours}h ${rest}m`;
 }
 
+/** Actual time spent waiting before call / seat / leave (history rows). */
+export function actualWaitMinutes(entry: {
+  joined_at: string;
+  called_at: string | null;
+  seated_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  skipped_at: string | null;
+  no_show_at: string | null;
+}): number | null {
+  const end =
+    entry.called_at ??
+    entry.seated_at ??
+    entry.no_show_at ??
+    entry.skipped_at ??
+    entry.cancelled_at ??
+    entry.completed_at;
+  if (!end) return null;
+  const startMs = new Date(entry.joined_at).getTime();
+  const endMs = new Date(end).getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+    return null;
+  }
+  return Math.floor((endMs - startMs) / 60_000);
+}
+
+export function formatActualWaitMinutes(minutes: number | null): string {
+  if (minutes === null) return "—";
+  if (minutes <= 0) return "< 1 min";
+  if (minutes === 1) return "1 min";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (rest === 0) {
+    return hours === 1 ? "1 hr" : `${hours} hr`;
+  }
+  return `${hours}h ${rest}m`;
+}
+
 export function elapsedMinutesSince(
   iso: string | null,
   now: Date,

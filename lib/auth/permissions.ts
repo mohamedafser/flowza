@@ -65,6 +65,7 @@ const STAFF_PERMISSIONS: readonly Permission[] = [
   "tables.manage",
   "customers.view",
   "reservations.view",
+  "reservations.manage",
   "displays.view",
   "qr_codes.view",
   "settings.view",

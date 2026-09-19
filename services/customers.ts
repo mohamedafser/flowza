@@ -125,7 +125,7 @@ export async function findPotentialDuplicateCustomer(
   if (input.phone) {
     let phoneQuery = supabase
       .from("customers")
-      .select("id, name")
+      .select("id, name, phone")
       .eq("restaurant_id", restaurantId)
       .eq("phone", input.phone);
     if (excludeId) {
@@ -133,14 +133,19 @@ export async function findPotentialDuplicateCustomer(
     }
     const { data } = await phoneQuery.limit(1).maybeSingle();
     if (data) {
-      return { id: data.id, name: data.name, match: "phone" };
+      return {
+        id: data.id,
+        name: data.name,
+        phone: data.phone,
+        match: "phone",
+      };
     }
   }
 
   if (input.email) {
     let emailQuery = supabase
       .from("customers")
-      .select("id, name")
+      .select("id, name, phone")
       .eq("restaurant_id", restaurantId)
       .eq("email", input.email);
     if (excludeId) {
@@ -148,7 +153,12 @@ export async function findPotentialDuplicateCustomer(
     }
     const { data } = await emailQuery.limit(1).maybeSingle();
     if (data) {
-      return { id: data.id, name: data.name, match: "email" };
+      return {
+        id: data.id,
+        name: data.name,
+        phone: data.phone,
+        match: "email",
+      };
     }
   }
 
@@ -359,5 +369,10 @@ export function matchIncomingDuplicate(
   if (!match) {
     return null;
   }
-  return { id: candidate.id, name: candidate.name, match };
+  return {
+    id: candidate.id,
+    name: candidate.name,
+    phone: candidate.phone,
+    match,
+  };
 }

@@ -14,9 +14,7 @@ const validGeneral = {
   phone: "+15550100",
   website: "https://harbor.test",
   description: "Seafood",
-  currency: "INR",
   timezone: "Asia/Kolkata",
-  defaultLanguage: "en",
   dateFormat: "DD/MM/YYYY",
   timeFormat: "12h",
 };

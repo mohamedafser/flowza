@@ -4,10 +4,13 @@ import {
   DASHBOARD_OVERVIEW_PATH,
   DASHBOARD_QR_CODES_PATH,
   DASHBOARD_QUEUE_PATH,
+  DASHBOARD_RESERVATIONS_PATH,
+  DASHBOARD_ANALYTICS_PATH,
   SETTINGS_BRANCHES_PATH,
   SETTINGS_CUSTOMER_PATH,
   SETTINGS_GENERAL_PATH,
   SETTINGS_HOURS_PATH,
+  SETTINGS_NOTIFICATIONS_PATH,
   SETTINGS_PATH,
   SETTINGS_QUEUE_PATH,
   SETTINGS_RESTAURANT_PATH,
@@ -58,6 +61,11 @@ export const SETTINGS_CUSTOMER_BREADCRUMBS = settingsBreadcrumbs({
   href: SETTINGS_CUSTOMER_PATH,
 });
 
+export const SETTINGS_NOTIFICATIONS_BREADCRUMBS = settingsBreadcrumbs({
+  label: "Notifications",
+  href: SETTINGS_NOTIFICATIONS_PATH,
+});
+
 export const SETTINGS_TABLES_BREADCRUMBS = settingsBreadcrumbs({
   label: "Table sections",
   href: SETTINGS_TABLES_PATH,
@@ -89,6 +97,11 @@ export const QUEUE_BREADCRUMBS = dashboardBreadcrumbs({
   href: DASHBOARD_QUEUE_PATH,
 });
 
+export const RESERVATIONS_BREADCRUMBS = dashboardBreadcrumbs({
+  label: "Reservations",
+  href: DASHBOARD_RESERVATIONS_PATH,
+});
+
 export const DISPLAYS_BREADCRUMBS = dashboardBreadcrumbs({
   label: "Displays",
   href: DASHBOARD_DISPLAYS_PATH,
@@ -102,6 +115,11 @@ export const QR_CODES_BREADCRUMBS = dashboardBreadcrumbs({
 export const CUSTOMERS_BREADCRUMBS = dashboardBreadcrumbs({
   label: "Customers",
   href: DASHBOARD_CUSTOMERS_PATH,
+});
+
+export const ANALYTICS_BREADCRUMBS = dashboardBreadcrumbs({
+  label: "Analytics",
+  href: DASHBOARD_ANALYTICS_PATH,
 });
 
 export function customerDetailBreadcrumbs(name: string): BreadcrumbItem[] {

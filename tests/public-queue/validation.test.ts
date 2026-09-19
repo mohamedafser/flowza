@@ -12,23 +12,23 @@ describe("public queue join validation", () => {
   it("accepts a valid join payload and normalizes phone", () => {
     const parsed = schema.parse({
       name: "  Ada Lovelace ",
-      phone: "+1 (555) 010-2030",
+      phone: "+1 415 555 2671",
       partySize: 3,
     });
     expect(parsed.name).toBe("Ada Lovelace");
-    expect(parsed.phone).toBe("+15550102030");
+    expect(parsed.phone).toBe("+14155552671");
     expect(parsed.partySize).toBe(3);
   });
 
   it("rejects an invalid name", () => {
     expect(
-      schema.safeParse({ name: " ", phone: "+15550102030", partySize: 2 })
+      schema.safeParse({ name: " ", phone: "+14155552671", partySize: 2 })
         .success,
     ).toBe(false);
     expect(
       schema.safeParse({
         name: "A".repeat(121),
-        phone: "+15550102030",
+        phone: "+14155552671",
         partySize: 2,
       }).success,
     ).toBe(false);
@@ -58,19 +58,19 @@ describe("public queue join validation", () => {
 
   it("rejects invalid party sizes", () => {
     expect(
-      schema.safeParse({ name: "Ada", phone: "+15550102030", partySize: 0 })
+      schema.safeParse({ name: "Ada", phone: "+14155552671", partySize: 0 })
         .success,
     ).toBe(false);
     expect(
-      schema.safeParse({ name: "Ada", phone: "+15550102030", partySize: -1 })
+      schema.safeParse({ name: "Ada", phone: "+14155552671", partySize: -1 })
         .success,
     ).toBe(false);
     expect(
-      schema.safeParse({ name: "Ada", phone: "+15550102030", partySize: 1.5 })
+      schema.safeParse({ name: "Ada", phone: "+14155552671", partySize: 1.5 })
         .success,
     ).toBe(false);
     expect(
-      schema.safeParse({ name: "Ada", phone: "+15550102030", partySize: 51 })
+      schema.safeParse({ name: "Ada", phone: "+14155552671", partySize: 51 })
         .success,
     ).toBe(false);
   });
@@ -81,8 +81,8 @@ describe("public queue join validation", () => {
       form.safeParse({ name: "Ada", phone: "", partySize: 2 }).success,
     ).toBe(false);
     expect(
-      form.parse({ name: "Ada", phone: "+15550102030", partySize: 2 }).phone,
-    ).toBe("+15550102030");
+      form.parse({ name: "Ada", phone: "+14155552671", partySize: 2 }).phone,
+    ).toBe("+14155552671");
   });
 });
 

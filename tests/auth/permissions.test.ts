@@ -42,7 +42,10 @@ describe("role permissions", () => {
     expect(hasPermission("STAFF", "customers.view")).toBe(true);
     expect(hasPermission("STAFF", "customers.manage")).toBe(false);
     expect(hasPermission("MANAGER", "customers.manage")).toBe(true);
+    expect(hasPermission("STAFF", "reservations.view")).toBe(true);
+    expect(hasPermission("STAFF", "reservations.manage")).toBe(true);
     expect(hasPermission("STAFF", "analytics.view")).toBe(false);
+    expect(hasPermission("MANAGER", "analytics.view")).toBe(true);
     expect(hasPermission("STAFF", "settings.manage")).toBe(false);
   });
 

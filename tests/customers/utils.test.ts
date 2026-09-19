@@ -37,28 +37,30 @@ function customer(
 }
 
 describe("phone normalization", () => {
-  it("strips separators and keeps a supplied country code", () => {
-    expect(normalizePhone(" +1 (555) 010-2030 ")).toBe("+15550102030");
+  it("normalizes international numbers to E.164", () => {
+    expect(normalizePhone("+1 415 555 2671")).toBe("+14155552671");
     expect(normalizePhone("+44 20 7946 0958")).toBe("+442079460958");
-    expect(normalizePhone("555-010-2030")).toBe("5550102030");
+    expect(normalizePhone("+91 98765 43210")).toBe("+919876543210");
   });
 
-  it("does not invent a country code", () => {
-    expect(normalizePhone("09876543210")).toBe("09876543210");
+  it("applies the default country for national numbers", () => {
+    expect(normalizePhone("9876543210")).toBe("+919876543210");
     expect(normalizePhone("")).toBeNull();
     expect(normalizePhone("   ")).toBeNull();
   });
 
-  it("validates E.164-style and local digit lengths", () => {
-    expect(isValidNormalizedPhone("+15550102030")).toBe(true);
+  it("validates phone numbers with libphonenumber", () => {
+    expect(isValidNormalizedPhone("+14155552671")).toBe(true);
     expect(isValidNormalizedPhone("+0123")).toBe(false);
     expect(isValidPhoneInput("abc")).toBe(false);
-    expect(isValidPhoneInput("+1 (555) 010-2030")).toBe(true);
+    expect(isValidPhoneInput("+1 415 555 2671")).toBe(true);
+    expect(isValidPhoneInput("9876543210")).toBe(true);
   });
 
   it("matches equivalent formatted numbers", () => {
-    expect(phonesMatch("+1 555 010 2030", "+15550102030")).toBe(true);
-    expect(phonesMatch("5550102030", "+15550102030")).toBe(false);
+    expect(phonesMatch("+91 98765 43210", "+919876543210")).toBe(true);
+    expect(phonesMatch("9876543210", "+919876543210")).toBe(true);
+    expect(phonesMatch("+14155552671", "+919876543210")).toBe(false);
   });
 });
 
@@ -87,7 +89,7 @@ describe("customer search and filters", () => {
     customer({
       id: "c1",
       name: "Ada Lovelace",
-      phone: "+15550102030",
+      phone: "+14155552671",
       email: "ada@example.com",
       created_at: "2026-09-18T08:00:00.000Z",
     }),
@@ -113,7 +115,7 @@ describe("customer search and filters", () => {
     ).toEqual(["c1"]);
     expect(
       sample
-        .filter((item) => matchesCustomerSearch(item, "555010"))
+        .filter((item) => matchesCustomerSearch(item, "415555"))
         .map((item) => item.id),
     ).toEqual(["c1"]);
     expect(
@@ -210,7 +212,7 @@ describe("duplicate detection", () => {
     customer({
       id: "c1",
       name: "Ada Lovelace",
-      phone: "+15550102030",
+      phone: "+14155552671",
       email: "ada@example.com",
     }),
     customer({
@@ -222,12 +224,13 @@ describe("duplicate detection", () => {
 
   it("prefers a normalized phone match over email", () => {
     const match = findDuplicateCustomer(records, {
-      phone: "+1 555 010 2030",
+      phone: "+1 415 555 2671",
       email: "grace@example.com",
     });
     expect(match).toEqual({
       id: "c1",
       name: "Ada Lovelace",
+      phone: "+14155552671",
       match: "phone",
     });
   });
@@ -241,6 +244,7 @@ describe("duplicate detection", () => {
     ).toEqual({
       id: "c2",
       name: "Grace Hopper",
+      phone: null,
       match: "email",
     });
   });
@@ -249,7 +253,7 @@ describe("duplicate detection", () => {
     expect(
       findDuplicateCustomer(
         records,
-        { phone: "+15550102030", email: null },
+        { phone: "+14155552671", email: null },
         "c1",
       ),
     ).toBeNull();

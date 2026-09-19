@@ -1,11 +1,19 @@
 import { Mail, Phone } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { StatusBadge } from "@/components/common/StatusBadge";
 import { formatDate } from "@/lib/utils/datetime";
+import {
+  formatReservationTime,
+  reservationStatusLabel,
+  reservationStatusTone,
+  type CustomerReservationHistory,
+} from "@/lib/utils/reservations";
 import type { CustomerRecord } from "@/lib/utils/customers";
 
 type CustomerProfileProps = {
   customer: CustomerRecord;
   timezone: string;
+  reservationHistory?: CustomerReservationHistory | null;
 };
 
 function ContactValue({
@@ -34,7 +42,13 @@ function ContactValue({
   );
 }
 
-export function CustomerProfile({ customer, timezone }: CustomerProfileProps) {
+export function CustomerProfile({
+  customer,
+  timezone,
+  reservationHistory,
+}: CustomerProfileProps) {
+  const history = reservationHistory ?? null;
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
@@ -100,28 +114,58 @@ export function CustomerProfile({ customer, timezone }: CustomerProfileProps) {
 
       <Card className="lg:col-span-2">
         <CardHeader>
-          <CardTitle>Activity</CardTitle>
+          <CardTitle>Reservation history</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
-          <p className="text-muted-foreground">
-            No queue or reservation activity yet.
-          </p>
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {[
-              "Queue history",
-              "Reservation history",
-              "Visit history",
-              "No-show history",
-              "Notification history",
-            ].map((label) => (
-              <li
-                key={label}
-                className="border-border text-muted-foreground rounded-lg border border-dashed px-3 py-2"
-              >
-                {label}
-              </li>
-            ))}
-          </ul>
+          {history && history.total > 0 ? (
+            <>
+              <ul className="grid gap-3 sm:grid-cols-4">
+                <li className="border-border rounded-lg border px-3 py-2">
+                  <p className="text-muted-foreground text-xs">Total</p>
+                  <p className="text-lg font-semibold">{history.total}</p>
+                </li>
+                <li className="border-border rounded-lg border px-3 py-2">
+                  <p className="text-muted-foreground text-xs">Completed</p>
+                  <p className="text-lg font-semibold">{history.completed}</p>
+                </li>
+                <li className="border-border rounded-lg border px-3 py-2">
+                  <p className="text-muted-foreground text-xs">Cancelled</p>
+                  <p className="text-lg font-semibold">{history.cancelled}</p>
+                </li>
+                <li className="border-border rounded-lg border px-3 py-2">
+                  <p className="text-muted-foreground text-xs">No-shows</p>
+                  <p className="text-lg font-semibold">{history.noShow}</p>
+                </li>
+              </ul>
+              <ul className="space-y-2">
+                {history.recent.map((row) => (
+                  <li
+                    key={row.id}
+                    className="border-border flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2"
+                  >
+                    <div>
+                      <p className="font-medium">
+                        {row.reservation_date} ·{" "}
+                        {formatReservationTime(row.start_time)} · party{" "}
+                        {row.party_size}
+                      </p>
+                      <p className="text-muted-foreground font-mono text-xs">
+                        {row.reservation_code ?? row.id.slice(0, 8)}
+                      </p>
+                    </div>
+                    <StatusBadge
+                      label={reservationStatusLabel(row.status)}
+                      tone={reservationStatusTone(row.status)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="text-muted-foreground">
+              No reservation activity yet.
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

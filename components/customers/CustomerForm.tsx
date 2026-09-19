@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import {
@@ -14,7 +14,9 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { DASHBOARD_CUSTOMERS_PATH } from "@/lib/auth/paths";
+import { formatPhoneDisplay } from "@/lib/utils/phone";
 import {
   customerFieldsSchema,
   toCustomerFormValues,
@@ -103,13 +105,15 @@ export function CustomerForm({
     <form className="max-w-xl space-y-4" onSubmit={onSubmit} noValidate>
       {duplicate ? (
         <Alert variant="warning">
-          <p className="text-foreground font-medium">
-            {duplicate.match === "phone"
-              ? "A customer with this phone already exists."
-              : "A customer with this email already exists."}
-          </p>
+          <p className="text-foreground font-medium">Customer already exists.</p>
           <p className="mt-1">
-            {duplicate.name} is already on file.{" "}
+            A customer with this phone number already exists.
+          </p>
+          <p className="mt-2 font-medium">{duplicate.name}</p>
+          {duplicate.phone ? (
+            <p className="text-sm">{formatPhoneDisplay(duplicate.phone)}</p>
+          ) : null}
+          <p className="mt-2">
             <Link
               href={`${DASHBOARD_CUSTOMERS_PATH}/${duplicate.id}`}
               className="text-foreground font-medium underline underline-offset-4"
@@ -142,16 +146,24 @@ export function CustomerForm({
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="customer-phone">Phone</Label>
-          <Input
-            id="customer-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            placeholder="Optional"
-            disabled={disabled}
-            aria-invalid={Boolean(form.formState.errors.phone)}
-            {...form.register("phone")}
+          <Label htmlFor="customer-phone">
+            Phone <RequiredMark />
+          </Label>
+          <Controller
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <PhoneInput
+                id="customer-phone"
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                disabled={disabled}
+                required
+                aria-required="true"
+                aria-invalid={Boolean(form.formState.errors.phone)}
+              />
+            )}
           />
           {form.formState.errors.phone ? (
             <p className="text-destructive text-xs">

@@ -21,11 +21,9 @@ export {
 } from "@/lib/validations/auth";
 
 export {
-  CURRENCIES,
   LOGO_ALLOWED_MIME_TYPES,
   LOGO_MAX_BYTES,
   TIMEZONES,
-  currencySchema,
   isAllowedLogoMimeType,
   isValidTimezone,
   normalizeWebsite,
@@ -37,7 +35,6 @@ export {
   timezoneSchema,
   toRestaurantPayload,
   websiteSchema,
-  type CurrencyCode,
   type RestaurantFormValues,
   type RestaurantOnboardingInput,
   type RestaurantUpdateInput,

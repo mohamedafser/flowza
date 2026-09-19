@@ -12,18 +12,21 @@ import {
   withVisitPlaceholder,
   type CustomerListItem,
 } from "@/lib/utils/customers";
+import type { CustomerReservationHistory } from "@/lib/utils/reservations";
 import type { CustomerRecord } from "@/services/customers";
 
 type CustomerDetailProps = {
   customer: CustomerListItem;
   timezone: string;
   canManage: boolean;
+  reservationHistory?: CustomerReservationHistory | null;
 };
 
 export function CustomerDetail({
   customer: initialCustomer,
   timezone,
   canManage,
+  reservationHistory = null,
 }: CustomerDetailProps) {
   const router = useRouter();
   const [customer, setCustomer] = useState(initialCustomer);
@@ -53,7 +56,11 @@ export function CustomerDetail({
         }
       />
 
-      <CustomerProfile customer={customer} timezone={timezone} />
+      <CustomerProfile
+        customer={customer}
+        timezone={timezone}
+        reservationHistory={reservationHistory}
+      />
 
       {canManage ? (
         <section className="max-w-xl space-y-3">
