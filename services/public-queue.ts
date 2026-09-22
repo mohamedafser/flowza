@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { safeDatabaseMessage } from "@/lib/errors/action";
 import type { ActionErrorCode } from "@/lib/errors/action";
 import { PUBLIC_QUEUE_MESSAGES } from "@/lib/public-queue/messages";
@@ -72,6 +73,12 @@ function mapPublicQueueError(
         ok: false,
         code: "VALIDATION",
         message: text || PUBLIC_QUEUE_MESSAGES.unableToJoin,
+      };
+    case "QUEUE_CONFLICT":
+      return {
+        ok: false,
+        code: "CONFLICT",
+        message: text || PUBLIC_QUEUE_MESSAGES.conflict,
       };
     case "QUEUE_NOT_FOUND":
       return {
@@ -172,6 +179,49 @@ export async function joinPublicQueue(input: {
   }
 
   const supabase = await createClient();
+
+  const admin = createServiceRoleClient();
+  if (admin) {
+    const { data: restaurantRow } = await admin
+      .from("restaurants")
+      .select("id")
+      .eq("slug", input.restaurantSlug)
+      .maybeSingle();
+
+    if (restaurantRow?.id) {
+      const { getSubscriptionAdmin } = await import(
+        "@/services/billing/subscription.service"
+      );
+      const { getPlanByCodeAdmin } = await import("@/services/billing/plans");
+      const { getUsageSummaryAdmin } = await import(
+        "@/services/billing/usage.service"
+      );
+      const { limitForResource, usageForResource } = await import(
+        "@/lib/billing/types"
+      );
+
+      const subscription = await getSubscriptionAdmin(restaurantRow.id);
+      const plan = await getPlanByCodeAdmin(subscription?.plan ?? "FREE");
+
+      if (plan) {
+        const usage = await getUsageSummaryAdmin(
+          restaurantRow.id,
+          subscription?.current_period_start,
+          subscription?.current_period_end,
+        );
+        const current = usageForResource(usage, "queue_entries");
+        const limit = limitForResource(plan.limits, "queue_entries");
+        if (current >= limit) {
+          return {
+            ok: false,
+            code: "CONFLICT",
+            message: "This restaurant has reached its monthly queue limit.",
+          };
+        }
+      }
+    }
+  }
+
   const { data, error } = await supabase.rpc("queue_join_public", {
     p_restaurant_slug: input.restaurantSlug,
     p_branch_slug: input.branchSlug,
@@ -283,7 +333,7 @@ function sanitizePublicCustomerSearch(value: string): string {
     .trim()
     .replace(/[%_]/g, " ")
     .replace(/\s+/g, " ")
-    .slice(0, 120);
+    .slice(0, 30);
 }
 
 const publicCustomerSearchResultSchema = z.object({
@@ -379,7 +429,7 @@ export async function searchPublicQueueCustomers(input: {
   }
 
   const query = sanitizePublicCustomerSearch(input.query);
-  if (query.length < 2) {
+  if (query.length < 8) {
     return { ok: true, data: { customers: [] } };
   }
 

@@ -13,6 +13,7 @@ import {
 } from "@/lib/auth/session";
 import { isAuthEmailConfigured } from "@/lib/auth/otp/config";
 import type { ActionErrorCode } from "@/lib/errors/action";
+import { logSecurityEvent, maskEmail } from "@/lib/security/logging";
 import { isServiceRoleConfigured } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -346,7 +347,15 @@ export async function signIn(input: unknown): Promise<AuthFlowResult> {
         },
       };
     }
-    return { ok: false, code: "UNKNOWN", message };
+    logSecurityEvent("LOGIN_FAILURE", {
+      emailMasked: maskEmail(normalizedEmail),
+      reason: "invalid_credentials",
+    });
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      message: "Invalid email or password.",
+    };
   }
 
   if (data.user) {
@@ -374,6 +383,10 @@ export async function signIn(input: unknown): Promise<AuthFlowResult> {
       };
     }
 
+    logSecurityEvent("LOGIN_SUCCESS", {
+      userId: data.user.id,
+      emailMasked: maskEmail(normalizedEmail),
+    });
     const redirectTo = await resolvePostAuthDestination(data.user);
     revalidatePath("/", "layout");
     return { ok: true, data: { redirectTo, hasSession: true } };

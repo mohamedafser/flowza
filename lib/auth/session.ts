@@ -174,6 +174,12 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
     getUserMemberships(user.id),
   ]);
   const { profile } = profileResult;
+
+  // Disabled accounts cannot use the application (platform flag).
+  if (profile?.account_status === "DISABLED") {
+    return null;
+  }
+
   const restaurantId = await resolvePreferredRestaurantId(memberships);
   const membership =
     memberships.find((item) => item.restaurant_id === restaurantId) ?? null;
@@ -221,6 +227,7 @@ export async function getMembershipForOrganization(
 
 /**
  * Post-verification / post-login destination.
+ * Platform SUPER_ADMINs land on /admin when they have no restaurant workspace.
  * Users without a restaurant membership are sent to onboarding.
  */
 export async function resolvePostAuthDestination(user: User): Promise<string> {
@@ -228,7 +235,16 @@ export async function resolvePostAuthDestination(user: User): Promise<string> {
     return VERIFY_EMAIL_PATH;
   }
 
-  const memberships = await getUserMemberships(user.id);
+  const context = await getAuthContext();
+  if (
+    context?.profile?.platform_role === "SUPER_ADMIN" &&
+    context.profile.account_status === "ACTIVE" &&
+    context.memberships.length === 0
+  ) {
+    return "/admin";
+  }
+
+  const memberships = context?.memberships ?? (await getUserMemberships(user.id));
   if (memberships.length === 0) {
     return ONBOARDING_RESTAURANT_PATH;
   }

@@ -33,10 +33,14 @@ export function LandingHeroVisual({ className }: { className?: string }) {
   const [motionOk, setMotionOk] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setMotionOk(!reduce);
-    if (reduce) return;
+    const timer = window.setTimeout(() => {
+      setMounted(true);
+      setMotionOk(!reduce);
+    }, 0);
+    if (reduce) {
+      return () => window.clearTimeout(timer);
+    }
 
     const queueId = window.setInterval(() => {
       setActive((n) => (n + 1) % QUEUE.length);
@@ -46,6 +50,7 @@ export function LandingHeroVisual({ className }: { className?: string }) {
     }, 1800);
 
     return () => {
+      window.clearTimeout(timer);
       window.clearInterval(queueId);
       window.clearInterval(flowId);
     };

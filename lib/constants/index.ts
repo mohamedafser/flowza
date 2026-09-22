@@ -16,6 +16,17 @@ export const DASHBOARD_NAV = [
   { title: "Settings", href: "/settings", icon: "Settings" },
 ] as const;
 
+export const ADMIN_NAV = [
+  { title: "Overview", href: "/admin", icon: "LayoutDashboard" },
+  { title: "Restaurants", href: "/admin/restaurants", icon: "Store" },
+  { title: "Users", href: "/admin/users", icon: "Users" },
+  { title: "Subscriptions", href: "/admin/subscriptions", icon: "CreditCard" },
+  { title: "Plans", href: "/admin/plans", icon: "Layers" },
+  { title: "Payments", href: "/admin/payments", icon: "Wallet" },
+  { title: "Audit Logs", href: "/admin/audit-logs", icon: "ScrollText" },
+  { title: "Settings", href: "/admin/settings", icon: "Settings" },
+] as const;
+
 export const PWA_INSTALL_DISMISS_KEY = "flowza-pwa-install-dismissed";
 export const PWA_INSTALL_DISMISS_DAYS = 14;
 

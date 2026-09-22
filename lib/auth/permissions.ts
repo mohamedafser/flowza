@@ -26,6 +26,8 @@ export const PERMISSIONS = [
   "settings.manage",
   "billing.view",
   "billing.manage",
+  "billing.subscription.manage",
+  "billing.payment.view",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -35,7 +37,9 @@ const ALL_PERMISSIONS: readonly Permission[] = PERMISSIONS;
 const OWNER_PERMISSIONS: readonly Permission[] = ALL_PERMISSIONS;
 
 const ADMIN_PERMISSIONS: readonly Permission[] = ALL_PERMISSIONS.filter(
-  (permission) => permission !== "billing.manage",
+  (permission) =>
+    permission !== "billing.manage" &&
+    permission !== "billing.subscription.manage",
 );
 
 const MANAGER_PERMISSIONS: readonly Permission[] = [

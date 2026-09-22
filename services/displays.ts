@@ -200,6 +200,32 @@ export async function createDisplay(
 ): Promise<DisplayMutationResult> {
   await requirePermission(input.restaurantId, "displays.manage");
 
+  try {
+    const { assertFeatureAccess, assertUsageLimit } = await import(
+      "@/services/billing/entitlement.service"
+    );
+    await assertFeatureAccess(input.restaurantId, "tv_displays");
+    await assertUsageLimit(input.restaurantId, "displays");
+  } catch (error) {
+    const { isSubscriptionLimitError } = await import("@/lib/billing/errors");
+    const { SubscriptionFeatureError } = await import("@/lib/billing/errors");
+    if (isSubscriptionLimitError(error)) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_LIMIT_REACHED",
+        message: error.message,
+      };
+    }
+    if (error instanceof SubscriptionFeatureError) {
+      return {
+        ok: false,
+        code: "FORBIDDEN",
+        message: error.message,
+      };
+    }
+    throw error;
+  }
+
   const branch = await resolveBranchRestaurant(input.branchId);
   if (!branch || branch.restaurantId !== input.restaurantId) {
     return {

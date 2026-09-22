@@ -194,28 +194,36 @@ export function DashboardPageSkeleton() {
   );
 }
 
-export function AuthFormSkeleton() {
+export function AuthFormSkeleton({ fields = 2 }: { fields?: number }) {
   return (
     <div
-      className="border-border bg-card w-full max-w-md space-y-4 rounded-xl border p-6 shadow-sm"
+      className="auth-card w-full"
       role="status"
       aria-busy="true"
       aria-label="Loading"
     >
-      <div className="space-y-2 text-center">
-        <Skeleton className="mx-auto h-6 w-32" />
-        <Skeleton className="mx-auto h-4 w-48" />
-      </div>
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-16" />
-          <Skeleton className="h-9 w-full" />
+      <div className="auth-card-inner space-y-5 p-6 sm:p-7">
+        <div className="space-y-3">
+          <Skeleton className="size-11 rounded-[0.9rem]" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-36" />
+            <Skeleton className="h-4 w-56 max-w-full" />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-9 w-full" />
+
+        <div className="space-y-4">
+          {Array.from({ length: fields }).map((_, index) => (
+            <div key={index} className="space-y-2">
+              <Skeleton className="h-3.5 w-16" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ))}
+          <Skeleton className="h-10 w-full rounded-lg" />
         </div>
-        <Skeleton className="h-9 w-full" />
+
+        <div className="border-border/60 border-t pt-4">
+          <Skeleton className="mx-auto h-4 w-44" />
+        </div>
       </div>
     </div>
   );

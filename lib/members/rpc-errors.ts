@@ -1,7 +1,12 @@
 import { safeDatabaseMessage } from "@/lib/errors/action";
 
 export type MemberMutationCode =
-  "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION" | "UNKNOWN";
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "VALIDATION"
+  | "SUBSCRIPTION_LIMIT_REACHED"
+  | "UNKNOWN";
 
 export type MemberRpcError = {
   message?: string;

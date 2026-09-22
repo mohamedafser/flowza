@@ -17,6 +17,7 @@ import {
   SETTINGS_QUEUE_PATH,
   SETTINGS_RESTAURANT_PATH,
   SETTINGS_TABLES_PATH,
+  SETTINGS_BILLING_PATH,
 } from "@/lib/auth/paths";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import type { MemberRole } from "@/lib/auth/roles";
@@ -44,6 +45,7 @@ const ROUTE_PERMISSIONS: ReadonlyArray<readonly [string, Permission]> = [
   [SETTINGS_CUSTOMER_PATH, "settings.view"],
   [SETTINGS_NOTIFICATIONS_PATH, "settings.view"],
   [SETTINGS_RESTAURANT_PATH, "settings.view"],
+  [SETTINGS_BILLING_PATH, "billing.view"],
   [SETTINGS_PATH, "settings.view"],
 ];
 

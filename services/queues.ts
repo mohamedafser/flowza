@@ -151,7 +151,6 @@ const SETTINGS_SELECT =
 const BRANCH_SELECT =
   "id, organization_id, restaurant_id, name, slug, timezone, use_restaurant_timezone, is_active";
 
-
 function asQueue(row: QueueRow): QueueRecord {
   return {
     id: row.id,
@@ -488,7 +487,11 @@ export const getQueueBundle = cache(
     if (queue) {
       let entryRows = knownEntriesResult.data;
       // Prefer parallel prefetched rows only when they match the selected queue.
-      if (!knownQueueId || queue.id !== knownQueueId || knownEntriesResult.error) {
+      if (
+        !knownQueueId ||
+        queue.id !== knownQueueId ||
+        knownEntriesResult.error
+      ) {
         const { data, error } = await supabase
           .from("queue_entries")
           .select(ENTRY_SELECT)
@@ -834,6 +837,22 @@ export async function addCustomerToQueue(
   const loaded = await loadAuthorizedQueue(input.queueId, "queue.manage");
   if (!loaded) {
     return { ok: false, code: "NOT_FOUND", message: "Queue not found." };
+  }
+
+  try {
+    const { assertUsageLimit } =
+      await import("@/services/billing/entitlement.service");
+    await assertUsageLimit(loaded.branch.restaurant_id, "queue_entries");
+  } catch (error) {
+    const { isSubscriptionLimitError } = await import("@/lib/billing/errors");
+    if (isSubscriptionLimitError(error)) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_LIMIT_REACHED",
+        message: error.message,
+      };
+    }
+    throw error;
   }
 
   const supabase = await createClient();

@@ -61,6 +61,8 @@ function mapReservationCode(code: ReservationMutationCode): ActionErrorCode {
     case "NOT_FOUND":
     case "VALIDATION":
     case "CONFLICT":
+    case "SUBSCRIPTION_LIMIT_REACHED":
+    case "SUBSCRIPTION_FEATURE_BLOCKED":
     case "UNKNOWN":
       return code;
     default: {

@@ -71,11 +71,13 @@ export function QueueJoinForm({ info }: QueueJoinFormProps) {
   useEffect(() => {
     if (step !== "search") return;
     const trimmed = query.trim();
-    if (trimmed.length < 2) {
-      setResults([]);
-      setHasSearched(false);
-      setSearching(false);
-      return;
+    if (trimmed.length < 8) {
+      const clearTimer = window.setTimeout(() => {
+        setResults([]);
+        setHasSearched(false);
+        setSearching(false);
+      }, 0);
+      return () => window.clearTimeout(clearTimer);
     }
 
     let cancelled = false;
@@ -227,7 +229,7 @@ export function QueueJoinForm({ info }: QueueJoinFormProps) {
                   setHasSearched(false);
                 }
               }}
-              placeholder="Search by name or phone"
+              placeholder="Search by your phone number"
               className="max-w-none [&_input]:h-12 [&_input]:text-base"
               disabled={pending}
             />
@@ -297,9 +299,9 @@ export function QueueJoinForm({ info }: QueueJoinFormProps) {
                 <p className="text-muted-foreground px-3 py-3 text-sm">
                   Searching…
                 </p>
-              ) : query.trim().length < 2 ? (
+              ) : query.trim().length < 8 ? (
                 <p className="text-muted-foreground px-3 py-3 text-sm">
-                  Type at least 2 characters to find your name or phone.
+                  Enter your full phone number to find a previous visit.
                 </p>
               ) : hasSearched && results.length === 0 ? (
                 <div className="space-y-3 px-3 py-3">
@@ -338,7 +340,7 @@ export function QueueJoinForm({ info }: QueueJoinFormProps) {
             </div>
           )}
 
-          {!selected && query.trim().length >= 2 && results.length > 0 ? (
+          {!selected && query.trim().length >= 8 && results.length > 0 ? (
             <Button
               type="button"
               variant="outline"

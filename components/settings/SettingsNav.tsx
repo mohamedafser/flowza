@@ -6,6 +6,7 @@ import {
   Bell,
   Building2,
   Clock3,
+  CreditCard,
   LayoutGrid,
   ListOrdered,
   Settings2,
@@ -23,6 +24,7 @@ import {
   SETTINGS_PATH,
   SETTINGS_QUEUE_PATH,
   SETTINGS_TABLES_PATH,
+  SETTINGS_BILLING_PATH,
 } from "@/lib/auth/paths";
 import { filterNavByRole } from "@/lib/auth/navigation";
 import type { MemberRole } from "@/lib/auth/roles";
@@ -45,6 +47,11 @@ const SETTINGS_NAV = [
     title: "Notifications",
     href: SETTINGS_NOTIFICATIONS_PATH,
     icon: Bell,
+  },
+  {
+    title: "Billing",
+    href: SETTINGS_BILLING_PATH,
+    icon: CreditCard,
   },
 ] as const;
 

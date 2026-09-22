@@ -39,7 +39,12 @@ export type TablesBundle = {
 };
 
 export type TableMutationCode =
-  "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "VALIDATION" | "UNKNOWN";
+  | "FORBIDDEN"
+  | "NOT_FOUND"
+  | "CONFLICT"
+  | "VALIDATION"
+  | "SUBSCRIPTION_LIMIT_REACHED"
+  | "UNKNOWN";
 
 export type TableMutationResult =
   | { ok: true; table: RestaurantTableRecord }
@@ -298,6 +303,23 @@ export async function createTable(
       "FORBIDDEN",
       "You do not have permission to create tables.",
     );
+  }
+
+  try {
+    const { assertUsageLimit } = await import(
+      "@/services/billing/entitlement.service"
+    );
+    await assertUsageLimit(branch.restaurant_id, "tables");
+  } catch (error) {
+    const { isSubscriptionLimitError } = await import("@/lib/billing/errors");
+    if (isSubscriptionLimitError(error)) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_LIMIT_REACHED",
+        message: error.message,
+      };
+    }
+    throw error;
   }
 
   try {

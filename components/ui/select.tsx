@@ -131,16 +131,22 @@ const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function Select(
     (node: HTMLSelectElement | null) => {
       hiddenRef.current = node;
       mergeRefs(forwardedRef)(node);
-      if (!node || isControlled) return;
-      // react-hook-form writes defaultValues through the ref after mount.
-      queueMicrotask(() => {
-        if (hiddenRef.current) {
-          setSynced(hiddenRef.current.value);
-        }
-      });
     },
-    [forwardedRef, isControlled],
+    [forwardedRef],
   );
+
+  // Sync uncontrolled value after mount (RHF may write via the ref).
+  // Never setState from a ref callback — that can run before mount.
+  React.useEffect(() => {
+    if (isControlled) return;
+    const timer = window.setTimeout(() => {
+      const node = hiddenRef.current;
+      if (node) {
+        setSynced(node.value);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [isControlled, defaultValue]);
 
   const commitValue = React.useCallback(
     (next: string) => {

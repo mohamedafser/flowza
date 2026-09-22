@@ -22,10 +22,21 @@ export const SETTINGS_QUEUE_PATH = "/settings/queue";
 export const SETTINGS_CUSTOMER_PATH = "/settings/customer";
 export const SETTINGS_NOTIFICATIONS_PATH = "/settings/notifications";
 export const SETTINGS_TABLES_PATH = "/settings/tables";
+export const SETTINGS_BILLING_PATH = "/settings/billing";
 export const DASHBOARD_DISPLAYS_PATH = "/dashboard/displays";
 export const DASHBOARD_QR_CODES_PATH = "/dashboard/qr-codes";
 export const ONBOARDING_PATH = "/onboarding";
 export const ONBOARDING_RESTAURANT_PATH = "/onboarding/restaurant";
+export const ADMIN_PATH = "/admin";
+export const ADMIN_RESTAURANTS_PATH = "/admin/restaurants";
+export const ADMIN_USERS_PATH = "/admin/users";
+export const ADMIN_SUBSCRIPTIONS_PATH = "/admin/subscriptions";
+export const ADMIN_PLANS_PATH = "/admin/plans";
+export const ADMIN_PAYMENTS_PATH = "/admin/payments";
+export const ADMIN_AUDIT_LOGS_PATH = "/admin/audit-logs";
+export const ADMIN_SETTINGS_PATH = "/admin/settings";
+export const SUSPENDED_PATH = "/suspended";
+export const MAINTENANCE_PATH = "/maintenance";
 export const HEALTH_API_PATH = "/api/health";
 export const PUBLIC_QUEUE_PATH = "/queue";
 export const PUBLIC_DISPLAY_PATH = "/display";
@@ -44,6 +55,10 @@ export const AUTH_PAGE_PATHS = [
   VERIFY_RESET_OTP_PATH,
 ] as const;
 
+export function isAdminPath(pathname: string): boolean {
+  return pathname === ADMIN_PATH || pathname.startsWith(`${ADMIN_PATH}/`);
+}
+
 export function isProtectedPath(pathname: string): boolean {
   return (
     pathname === SETTINGS_PATH ||
@@ -51,7 +66,8 @@ export function isProtectedPath(pathname: string): boolean {
     pathname === DASHBOARD_PATH ||
     pathname.startsWith(`${DASHBOARD_PATH}/`) ||
     pathname === ONBOARDING_PATH ||
-    pathname.startsWith(`${ONBOARDING_PATH}/`)
+    pathname.startsWith(`${ONBOARDING_PATH}/`) ||
+    isAdminPath(pathname)
   );
 }
 
@@ -64,6 +80,8 @@ export function isPublicAuthAssetPath(pathname: string): boolean {
     pathname === HEALTH_API_PATH ||
     pathname.startsWith(AUTH_CALLBACK_PATH) ||
     pathname === "/offline" ||
+    pathname === SUSPENDED_PATH ||
+    pathname === MAINTENANCE_PATH ||
     pathname === "/manifest.webmanifest" ||
     pathname.startsWith("/icons/") ||
     pathname === "/sw.js" ||
@@ -75,21 +93,47 @@ export function isPublicAuthAssetPath(pathname: string): boolean {
     pathname.startsWith(`${PUBLIC_DISPLAY_PATH}/`) ||
     pathname === PUBLIC_QR_PATH ||
     pathname.startsWith(`${PUBLIC_QR_PATH}/`) ||
-    pathname.startsWith("/api/public/")
+    pathname.startsWith("/api/public/") ||
+    pathname.startsWith("/api/webhooks/")
   );
 }
 
+/**
+ * Only allow same-origin relative paths. Blocks open redirects
+ * (//evil.com, /\evil, encoded schemes, protocol-relative URLs).
+ */
 export function safeRedirectPath(
   value: string | null | undefined,
   fallback = DASHBOARD_OVERVIEW_PATH,
 ): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) {
+  if (!value) {
     return fallback;
   }
-  if (value.startsWith("/auth/callback")) {
+
+  let candidate = value.trim();
+  try {
+    candidate = decodeURIComponent(candidate);
+  } catch {
     return fallback;
   }
-  return value;
+
+  candidate = candidate.replace(/\\/g, "/");
+
+  if (
+    !candidate.startsWith("/") ||
+    candidate.startsWith("//") ||
+    candidate.includes("://") ||
+    candidate.includes("\0") ||
+    /[\s<>]/.test(candidate)
+  ) {
+    return fallback;
+  }
+
+  if (candidate.startsWith("/auth/callback")) {
+    return fallback;
+  }
+
+  return candidate;
 }
 
 export function getAppOrigin(): string {

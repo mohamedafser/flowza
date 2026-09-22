@@ -24,8 +24,8 @@ export function LandingReveal({
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) {
-      setVisible(true);
-      return;
+      const timer = window.setTimeout(() => setVisible(true), 0);
+      return () => window.clearTimeout(timer);
     }
 
     // Fallback so content never stays invisible if IO misses.

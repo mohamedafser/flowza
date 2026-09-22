@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<AuthFormSkeleton />}>
+    <Suspense fallback={<AuthFormSkeleton fields={4} />}>
       <SignupForm />
     </Suspense>
   );

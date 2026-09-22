@@ -55,6 +55,9 @@ export function statusForActionCode(code: ActionErrorCode): number {
     case "NOT_FOUND":
       return 404;
     case "CONFLICT":
+    case "SUBSCRIPTION_LIMIT_REACHED":
+    case "SUBSCRIPTION_FEATURE_BLOCKED":
+    case "SUBSCRIPTION_DOWNGRADE_BLOCKED":
       return 409;
     case "RATE_LIMITED":
       return 429;

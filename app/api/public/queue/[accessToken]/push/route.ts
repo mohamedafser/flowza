@@ -4,6 +4,7 @@ import {
   readJsonBody,
 } from "@/lib/api/json";
 import { isWebPushConfigured } from "@/lib/notifications/push/config";
+import { safeAppClickUrl } from "@/lib/security/urls";
 import { publicAccessTokenSchema } from "@/lib/validations/public-queue";
 import {
   deleteCustomerPushSubscription,
@@ -20,7 +21,7 @@ type RouteContext = {
 
 const subscribeBodySchema = z.object({
   subscription: pushSubscriptionSchema,
-  clickUrl: z.string().url().max(2048).optional(),
+  clickUrl: z.string().max(2048).optional(),
 });
 
 const unsubscribeBodySchema = z.object({
@@ -56,10 +57,11 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const referer = request.headers.get("referer");
-  const clickUrl =
+  const clickUrl = safeAppClickUrl(
     parsed.data.clickUrl ||
-    (referer && referer.startsWith("http") ? referer : undefined) ||
-    new URL(request.url).origin;
+      (referer && referer.startsWith("http") ? referer : undefined) ||
+      new URL(request.url).origin,
+  );
 
   const result = await upsertCustomerPushSubscription({
     accessToken: tokenParsed.data,

@@ -24,6 +24,8 @@ export type Database = {
           full_name: string | null;
           phone: string | null;
           avatar_url: string | null;
+          platform_role: Database["public"]["Enums"]["platform_role"] | null;
+          account_status: Database["public"]["Enums"]["account_status"];
           created_at: string;
           updated_at: string;
         };
@@ -32,6 +34,8 @@ export type Database = {
           full_name?: string | null;
           phone?: string | null;
           avatar_url?: string | null;
+          platform_role?: Database["public"]["Enums"]["platform_role"] | null;
+          account_status?: Database["public"]["Enums"]["account_status"];
           created_at?: string;
           updated_at?: string;
         };
@@ -40,6 +44,8 @@ export type Database = {
           full_name?: string | null;
           phone?: string | null;
           avatar_url?: string | null;
+          platform_role?: Database["public"]["Enums"]["platform_role"] | null;
+          account_status?: Database["public"]["Enums"]["account_status"];
           created_at?: string;
           updated_at?: string;
         };
@@ -49,6 +55,36 @@ export type Database = {
             columns: ["id"];
             isOneToOne: true;
             referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+
+      platform_settings: {
+        Row: {
+          key: string;
+          value: Json;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          key: string;
+          value?: Json;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          key?: string;
+          value?: Json;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "platform_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
             referencedColumns: ["id"];
           },
         ];
@@ -95,34 +131,52 @@ export type Database = {
       plans: {
         Row: {
           id: string;
+          code: string;
           name: string;
+          description: string | null;
           price: number;
+          monthly_price: number;
+          yearly_price: number;
           currency: string;
           billing_cycle: Database["public"]["Enums"]["billing_cycle"];
           features: Json;
+          limits: Json;
           is_active: boolean;
+          sort_order: number;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
+          code: string;
           name: string;
+          description?: string | null;
           price?: number;
+          monthly_price?: number;
+          yearly_price?: number;
           currency?: string;
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
           features?: Json;
+          limits?: Json;
           is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
+          code?: string;
           name?: string;
+          description?: string | null;
           price?: number;
+          monthly_price?: number;
+          yearly_price?: number;
           currency?: string;
           billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
           features?: Json;
+          limits?: Json;
           is_active?: boolean;
+          sort_order?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -132,11 +186,19 @@ export type Database = {
         Row: {
           id: string;
           organization_id: string;
+          restaurant_id: string;
           subscription_id: string | null;
           amount: number;
           currency: string;
-          status: string;
+          status: Database["public"]["Enums"]["payment_status"];
+          provider: string | null;
           provider_payment_id: string | null;
+          provider_invoice_id: string | null;
+          invoice_number: string | null;
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"] | null;
+          description: string | null;
+          failure_reason: string | null;
+          metadata: Json;
           paid_at: string | null;
           created_at: string;
           updated_at: string;
@@ -144,11 +206,19 @@ export type Database = {
         Insert: {
           id?: string;
           organization_id: string;
+          restaurant_id: string;
           subscription_id?: string | null;
           amount: number;
           currency?: string;
-          status?: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          provider?: string | null;
           provider_payment_id?: string | null;
+          provider_invoice_id?: string | null;
+          invoice_number?: string | null;
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"] | null;
+          description?: string | null;
+          failure_reason?: string | null;
+          metadata?: Json;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -156,11 +226,19 @@ export type Database = {
         Update: {
           id?: string;
           organization_id?: string;
+          restaurant_id?: string;
           subscription_id?: string | null;
           amount?: number;
           currency?: string;
-          status?: string;
+          status?: Database["public"]["Enums"]["payment_status"];
+          provider?: string | null;
           provider_payment_id?: string | null;
+          provider_invoice_id?: string | null;
+          invoice_number?: string | null;
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"] | null;
+          description?: string | null;
+          failure_reason?: string | null;
+          metadata?: Json;
           paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -171,6 +249,13 @@ export type Database = {
             columns: ["organization_id"];
             isOneToOne: false;
             referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurants";
             referencedColumns: ["id"];
           },
           {
@@ -1376,10 +1461,16 @@ export type Database = {
           plan_id: string | null;
           plan: string;
           status: Database["public"]["Enums"]["subscription_status"];
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"];
           provider: string | null;
+          provider_customer_id: string | null;
           provider_subscription_id: string | null;
           current_period_start: string | null;
           current_period_end: string | null;
+          trial_start: string | null;
+          trial_end: string | null;
+          cancel_at_period_end: boolean;
+          cancelled_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1390,10 +1481,16 @@ export type Database = {
           plan_id?: string | null;
           plan: string;
           status?: Database["public"]["Enums"]["subscription_status"];
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
           provider?: string | null;
+          provider_customer_id?: string | null;
           provider_subscription_id?: string | null;
           current_period_start?: string | null;
           current_period_end?: string | null;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1404,10 +1501,16 @@ export type Database = {
           plan_id?: string | null;
           plan?: string;
           status?: Database["public"]["Enums"]["subscription_status"];
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
           provider?: string | null;
+          provider_customer_id?: string | null;
           provider_subscription_id?: string | null;
           current_period_start?: string | null;
           current_period_end?: string | null;
+          trial_start?: string | null;
+          trial_end?: string | null;
+          cancel_at_period_end?: boolean;
+          cancelled_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1415,17 +1518,57 @@ export type Database = {
           {
             foreignKeyName: "subscriptions_restaurant_id_fkey";
             columns: ["restaurant_id"];
-            isOneToOne: false;
+            isOneToOne: true;
             referencedRelation: "restaurants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
             referencedColumns: ["id"];
           },
         ];
       };
+      webhook_events: {
+        Row: {
+          id: string;
+          provider: string;
+          event_id: string;
+          event_type: string;
+          payload: Json;
+          processed_at: string | null;
+          processing_error: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider: string;
+          event_id: string;
+          event_type: string;
+          payload?: Json;
+          processed_at?: string | null;
+          processing_error?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider?: string;
+          event_id?: string;
+          event_type?: string;
+          payload?: Json;
+          processed_at?: string | null;
+          processing_error?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       audit_logs: {
         Row: {
           id: string;
-          restaurant_id: string;
-          organization_id: string;
+          restaurant_id: string | null;
+          organization_id: string | null;
           user_id: string | null;
           action: string;
           entity_type: string;
@@ -1435,8 +1578,8 @@ export type Database = {
         };
         Insert: {
           id?: string;
-          restaurant_id: string;
-          organization_id?: string;
+          restaurant_id?: string | null;
+          organization_id?: string | null;
           user_id?: string | null;
           action: string;
           entity_type: string;
@@ -1446,8 +1589,8 @@ export type Database = {
         };
         Update: {
           id?: string;
-          restaurant_id?: string;
-          organization_id?: string;
+          restaurant_id?: string | null;
+          organization_id?: string | null;
           user_id?: string | null;
           action?: string;
           entity_type?: string;
@@ -1851,6 +1994,10 @@ export type Database = {
         Args: { p_branch_id: string };
         Returns: boolean;
       };
+      is_platform_super_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
       restaurant_id_for_operating_hours: {
         Args: { p_operating_hours_id: string };
         Returns: string;
@@ -2015,13 +2162,24 @@ export type Database = {
         Args: { p_notification_id: string };
         Returns: Database["public"]["Tables"]["notifications"]["Row"];
       };
+      billing_usage_summary: {
+        Args: {
+          p_restaurant_id: string;
+          p_period_start?: string | null;
+          p_period_end?: string | null;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       organization_business_type:
         "RESTAURANT" | "SALON" | "CLINIC" | "CAR_SERVICE" | "OTHER";
       organization_status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
       billing_cycle: "MONTHLY" | "YEARLY";
+      payment_status: "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
       restaurant_status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+      platform_role: "SUPER_ADMIN";
+      account_status: "ACTIVE" | "DISABLED";
       member_role: "OWNER" | "ADMIN" | "MANAGER" | "STAFF";
       member_status: "ACTIVE" | "INVITED" | "SUSPENDED";
       invitation_status: "PENDING" | "ACCEPTED" | "REVOKED";
@@ -2059,7 +2217,12 @@ export type Database = {
       notification_status:
         "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
       subscription_status:
-        "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELLED" | "EXPIRED";
+        | "TRIALING"
+        | "ACTIVE"
+        | "PAST_DUE"
+        | "PAUSED"
+        | "CANCELLED"
+        | "EXPIRED";
     };
     CompositeTypes: Record<string, never>;
   };
@@ -2080,6 +2243,7 @@ export type Enums<T extends keyof Database["public"]["Enums"]> =
 /** Core application tables introduced in Phase 2. */
 export const DATABASE_TABLES = [
   "profiles",
+  "platform_settings",
   "organizations",
   "plans",
   "payments",
@@ -2103,6 +2267,7 @@ export const DATABASE_TABLES = [
   "customer_notification_preferences",
   "push_subscriptions",
   "subscriptions",
+  "webhook_events",
   "audit_logs",
   "restaurant_settings",
   "operating_hours",

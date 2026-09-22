@@ -292,7 +292,12 @@ export type BranchMutationResult =
   | {
       ok: false;
       message: string;
-      code: "FORBIDDEN" | "NOT_FOUND" | "CONFLICT" | "UNKNOWN";
+      code:
+        | "FORBIDDEN"
+        | "NOT_FOUND"
+        | "CONFLICT"
+        | "SUBSCRIPTION_LIMIT_REACHED"
+        | "UNKNOWN";
     };
 
 export async function createBranch(
@@ -302,6 +307,24 @@ export async function createBranch(
     input.restaurantId,
     "restaurant.manage",
   );
+
+  const { assertUsageLimit } = await import(
+    "@/services/billing/entitlement.service"
+  );
+  try {
+    await assertUsageLimit(input.restaurantId, "branches");
+  } catch (error) {
+    const { isSubscriptionLimitError } = await import("@/lib/billing/errors");
+    if (isSubscriptionLimitError(error)) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_LIMIT_REACHED",
+        message: error.message,
+      };
+    }
+    throw error;
+  }
+
   const timezone = input.useRestaurantTimezone
     ? ((await restaurantTimezone(input.restaurantId)) ?? input.timezone)
     : input.timezone;

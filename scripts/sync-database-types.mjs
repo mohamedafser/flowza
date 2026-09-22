@@ -36,6 +36,7 @@ export type Enums<T extends keyof Database["public"]["Enums"]> =
 /** Core application tables introduced in Phase 2. */
 export const DATABASE_TABLES = [
   "profiles",
+  "platform_settings",
   "organizations",
   "plans",
   "payments",
@@ -57,7 +58,9 @@ export const DATABASE_TABLES = [
   "notifications",
   "notification_reads",
   "customer_notification_preferences",
+  "push_subscriptions",
   "subscriptions",
+  "webhook_events",
   "audit_logs",
   "restaurant_settings",
   "operating_hours",

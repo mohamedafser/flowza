@@ -79,6 +79,8 @@ export type ReservationMutationCode =
   | "CONFLICT"
   | "OUTSIDE_HOURS"
   | "INVALID_TRANSITION"
+  | "SUBSCRIPTION_LIMIT_REACHED"
+  | "SUBSCRIPTION_FEATURE_BLOCKED"
   | "UNKNOWN";
 
 export type ReservationMutationResult =
@@ -710,6 +712,33 @@ export async function createReservation(
       code: "VALIDATION",
       message: "Cannot create reservations for an inactive branch.",
     };
+  }
+
+  try {
+    const { assertFeatureAccess, assertUsageLimit } = await import(
+      "@/services/billing/entitlement.service"
+    );
+    await assertFeatureAccess(loaded.branch.restaurant_id, "reservations");
+    await assertUsageLimit(loaded.branch.restaurant_id, "reservations");
+  } catch (error) {
+    const { isSubscriptionLimitError, SubscriptionFeatureError } = await import(
+      "@/lib/billing/errors"
+    );
+    if (isSubscriptionLimitError(error)) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_LIMIT_REACHED",
+        message: error.message,
+      };
+    }
+    if (error instanceof SubscriptionFeatureError) {
+      return {
+        ok: false,
+        code: "SUBSCRIPTION_FEATURE_BLOCKED",
+        message: error.message,
+      };
+    }
+    throw error;
   }
 
   const customerResult = await resolveBookingCustomer(

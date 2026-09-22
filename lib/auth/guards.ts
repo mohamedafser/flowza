@@ -16,6 +16,7 @@ import {
   type MembershipWithRestaurant,
   type Organization,
 } from "@/lib/auth/session";
+import { logSecurityEvent } from "@/lib/security/logging";
 import { organizationIdFromRestaurant } from "@/lib/tenancy/organization";
 
 export class AuthorizationError extends Error {
@@ -67,9 +68,24 @@ export async function requireRestaurantMembership(
   );
 
   if (!membership) {
+    logSecurityEvent("CROSS_TENANT_ATTEMPT", {
+      userId: context.user.id,
+      resource: "restaurant",
+      claimedRestaurantId: restaurantId,
+    });
     throw new AuthorizationError(
       "NO_MEMBERSHIP",
       "You do not belong to this restaurant.",
+    );
+  }
+
+  if (
+    membership.restaurant.status === "SUSPENDED" ||
+    membership.restaurant.status === "INACTIVE"
+  ) {
+    throw new AuthorizationError(
+      "FORBIDDEN",
+      "This restaurant account is currently suspended. Please contact platform support.",
     );
   }
 

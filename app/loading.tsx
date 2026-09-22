@@ -1,16 +1,15 @@
-import { PageContainer } from "@/components/layout/PageContainer";
-import { DashboardPageSkeleton } from "@/components/common/PageSkeletons";
+import { AuthShell } from "@/components/auth/AuthShell";
+import { AuthFormSkeleton } from "@/components/common/PageSkeletons";
 
 /**
  * Root fallback for routes outside the app shell.
- * Never paints a fake sidebar/header — those come from AppShell only.
+ * Landing → login/signup shares this boundary, so mirror the auth screen
+ * instead of painting a dashboard skeleton.
  */
 export default function Loading() {
   return (
-    <div className="bg-muted/30 min-h-dvh">
-      <PageContainer className="py-8">
-        <DashboardPageSkeleton />
-      </PageContainer>
-    </div>
+    <AuthShell>
+      <AuthFormSkeleton />
+    </AuthShell>
   );
 }

@@ -113,6 +113,26 @@ export async function inviteMember(
     };
   }
 
+  const restaurantId = context.restaurant?.id;
+  if (restaurantId) {
+    try {
+      const { assertUsageLimit } = await import(
+        "@/services/billing/entitlement.service"
+      );
+      await assertUsageLimit(restaurantId, "staff");
+    } catch (error) {
+      const { isSubscriptionLimitError } = await import("@/lib/billing/errors");
+      if (isSubscriptionLimitError(error)) {
+        return {
+          ok: false,
+          code: "SUBSCRIPTION_LIMIT_REACHED",
+          message: error.message,
+        };
+      }
+      throw error;
+    }
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("invite_organization_member", {
     p_organization_id: organizationId,

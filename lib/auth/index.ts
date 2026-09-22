@@ -35,6 +35,27 @@ export {
 } from "@/lib/auth/guards";
 
 export {
+  PLATFORM_PERMISSIONS,
+  PLATFORM_ROLES,
+  SUPER_ADMIN_PERMISSIONS,
+  hasAnyPlatformPermission,
+  hasPlatformPermission,
+  isPlatformRole,
+  permissionsForPlatformRole,
+  type PlatformPermission,
+  type PlatformRole,
+} from "@/lib/auth/platform-permissions";
+
+export {
+  getPlatformRoleFromProfile,
+  isActivePlatformAccount,
+  requireAdminPage,
+  requirePlatformPermission,
+  requireSuperAdmin,
+  type PlatformAuthContext,
+} from "@/lib/auth/platform-guards";
+
+export {
   ensureProfile,
   getAuthContext,
   getAuthUser,

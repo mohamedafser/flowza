@@ -130,8 +130,8 @@ export const searchPublicQueueCustomersSchema = z.object({
   query: z
     .string()
     .trim()
-    .min(1, "Enter a name or phone to search.")
-    .max(120, "Search is too long"),
+    .min(8, "Enter your full phone number to look yourself up.")
+    .max(30, "Search is too long"),
 });
 
 export type SearchPublicQueueCustomersInput = z.infer<

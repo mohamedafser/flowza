@@ -1,4 +1,12 @@
 import {
+  ADMIN_AUDIT_LOGS_PATH,
+  ADMIN_PATH,
+  ADMIN_PAYMENTS_PATH,
+  ADMIN_PLANS_PATH,
+  ADMIN_RESTAURANTS_PATH,
+  ADMIN_SETTINGS_PATH,
+  ADMIN_SUBSCRIPTIONS_PATH,
+  ADMIN_USERS_PATH,
   DASHBOARD_CUSTOMERS_PATH,
   DASHBOARD_DISPLAYS_PATH,
   DASHBOARD_OVERVIEW_PATH,
@@ -16,6 +24,7 @@ import {
   SETTINGS_QUEUE_PATH,
   SETTINGS_RESTAURANT_PATH,
   SETTINGS_TABLES_PATH,
+  SETTINGS_BILLING_PATH,
 } from "@/lib/auth/paths";
 import type { BreadcrumbItem } from "@/components/common/Breadcrumbs";
 
@@ -82,6 +91,11 @@ export const SETTINGS_MEMBERS_BREADCRUMBS = settingsBreadcrumbs({
   href: SETTINGS_MEMBERS_PATH,
 });
 
+export const SETTINGS_BILLING_BREADCRUMBS = settingsBreadcrumbs({
+  label: "Billing",
+  href: SETTINGS_BILLING_PATH,
+});
+
 export function settingsBranchDetailBreadcrumbs(
   branchName: string,
 ): BreadcrumbItem[] {
@@ -141,3 +155,42 @@ export function newCustomerBreadcrumbs(): BreadcrumbItem[] {
     { label: "New customer" },
   );
 }
+
+export function adminBreadcrumbs(...trail: BreadcrumbItem[]): BreadcrumbItem[] {
+  return [{ label: "Admin", href: ADMIN_PATH }, ...trail];
+}
+
+export const ADMIN_RESTAURANTS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Restaurants",
+  href: ADMIN_RESTAURANTS_PATH,
+});
+
+export const ADMIN_USERS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Users",
+  href: ADMIN_USERS_PATH,
+});
+
+export const ADMIN_SUBSCRIPTIONS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Subscriptions",
+  href: ADMIN_SUBSCRIPTIONS_PATH,
+});
+
+export const ADMIN_PLANS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Plans",
+  href: ADMIN_PLANS_PATH,
+});
+
+export const ADMIN_PAYMENTS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Payments",
+  href: ADMIN_PAYMENTS_PATH,
+});
+
+export const ADMIN_AUDIT_LOGS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Audit logs",
+  href: ADMIN_AUDIT_LOGS_PATH,
+});
+
+export const ADMIN_SETTINGS_BREADCRUMBS = adminBreadcrumbs({
+  label: "Settings",
+  href: ADMIN_SETTINGS_PATH,
+});

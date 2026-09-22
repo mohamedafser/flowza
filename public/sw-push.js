@@ -52,11 +52,25 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const targetUrl =
+  const rawTarget =
     (event.notification.data && event.notification.data.url) || "/";
 
   event.waitUntil(
     (async () => {
+      let targetUrl = "/";
+      try {
+        if (typeof rawTarget === "string" && rawTarget.startsWith("/")) {
+          targetUrl = new URL(rawTarget, self.location.origin).href;
+        } else if (typeof rawTarget === "string") {
+          const parsed = new URL(rawTarget);
+          if (parsed.origin === self.location.origin) {
+            targetUrl = parsed.href;
+          }
+        }
+      } catch {
+        targetUrl = "/";
+      }
+
       const allClients = await self.clients.matchAll({
         type: "window",
         includeUncontrolled: true,

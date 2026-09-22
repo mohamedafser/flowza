@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   CalendarDays,
+  CreditCard,
   LayoutGrid,
   ListOrdered,
   Monitor,
@@ -17,6 +18,7 @@ import { AppLogo } from "@/components/common/AppLogo";
 import { InstallPWA } from "@/components/common/InstallPWA";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LandingHeroVisual } from "@/components/landing/LandingHeroVisual";
+import { LandingPricing } from "@/components/landing/LandingPricing";
 import { LandingReveal } from "@/components/landing/LandingReveal";
 import { LandingScrollFix } from "@/components/landing/LandingScrollFix";
 import { Button } from "@/components/ui/button";
@@ -120,6 +122,12 @@ export function LandingPage() {
           <AppLogo size="md" />
         </Link>
         <div className="flex items-center gap-1.5 sm:gap-2">
+          <Link
+            href="/#pricing"
+            className="text-muted-foreground hover:text-foreground hidden px-2.5 py-1.5 text-sm font-medium transition-colors sm:inline-flex"
+          >
+            Pricing
+          </Link>
           <ThemeToggle />
           <Button
             variant="ghost"
@@ -140,7 +148,7 @@ export function LandingPage() {
           <div className="landing-hero-copy max-w-xl">
             <p className="landing-hero-line landing-hero-line-0 landing-eyebrow mb-4 inline-flex items-center gap-2 text-sm font-medium">
               <Sparkles className="landing-icon-spin size-4" aria-hidden />
-              Modern restaurant guest flow
+              Queue software with restaurant billing built in
             </p>
             <p className="landing-brand-line font-(family-name:--font-landing-display) text-[clamp(3.4rem,12vw,6rem)] leading-[0.9] font-extrabold tracking-tight text-balance">
               <span className="landing-brand-word">{APP_NAME}</span>
@@ -149,8 +157,8 @@ export function LandingPage() {
               Restaurant ops that move as fast as your floor.
             </h1>
             <p className="landing-hero-line landing-hero-line-2 text-muted-foreground mt-4 max-w-md text-base leading-relaxed text-pretty sm:text-lg">
-              Queue, tables, reservations, and guest updates — one calm system
-              for modern restaurants.
+              Queue, tables, reservations, and guest updates — plus clear plans
+              and usage limits for every restaurant you run.
             </p>
             <div className="landing-hero-line landing-hero-line-3 mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <Button
@@ -159,17 +167,17 @@ export function LandingPage() {
                 nativeButton={false}
                 className="landing-cta-primary min-w-42"
               >
-                Start free
+                Start free trial
                 <ArrowRight className="size-4" />
               </Button>
               <Button
                 size="lg"
                 variant="outline"
-                render={<Link href="/login" />}
+                render={<Link href="/#pricing" />}
                 nativeButton={false}
                 className="min-w-42"
               >
-                Log in
+                View pricing
               </Button>
             </div>
 
@@ -181,7 +189,7 @@ export function LandingPage() {
                 { icon: ListOrdered, label: "Queues" },
                 { icon: LayoutGrid, label: "Tables" },
                 { icon: CalendarDays, label: "Bookings" },
-                { icon: QrCode, label: "QR join" },
+                { icon: CreditCard, label: "Billing" },
               ].map((item) => {
                 const Icon = item.icon;
                 return (
@@ -299,6 +307,8 @@ export function LandingPage() {
           </div>
         </section>
 
+        <LandingPricing />
+
         <section className="border-border/50 relative z-10 overflow-hidden border-t">
           <div className="landing-cta-glow" aria-hidden />
           <LandingReveal className="relative mx-auto flex w-full max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-8 sm:py-24 md:flex-row md:items-end md:justify-between">
@@ -307,8 +317,8 @@ export function LandingPage() {
                 Ready to smooth out your service?
               </h2>
               <p className="text-muted-foreground mt-3 text-base leading-relaxed text-pretty">
-                Set up your restaurant in minutes. Invite your team when you’re
-                ready.
+                Start on Free with a 14-day trial. Invite your team and upgrade
+                from Settings → Billing whenever you need more capacity.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
@@ -324,10 +334,10 @@ export function LandingPage() {
               <Button
                 size="lg"
                 variant="outline"
-                render={<Link href="/dashboard" />}
+                render={<Link href="/#pricing" />}
                 nativeButton={false}
               >
-                Open dashboard
+                Compare plans
               </Button>
             </div>
           </LandingReveal>
@@ -339,7 +349,15 @@ export function LandingPage() {
           <p className="text-muted-foreground text-sm">
             © {new Date().getFullYear()} {APP_NAME}. Guest flow, simplified.
           </p>
-          <InstallPWA />
+          <div className="flex flex-wrap items-center gap-4">
+            <Link
+              href="/#pricing"
+              className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+            >
+              Pricing
+            </Link>
+            <InstallPWA />
+          </div>
         </div>
       </footer>
     </div>

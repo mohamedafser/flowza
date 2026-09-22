@@ -102,6 +102,18 @@ export async function updateSession(request: NextRequest) {
     if (!isVerified) {
       return redirectTo(request, VERIFY_EMAIL_PATH, supabaseResponse);
     }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("account_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.account_status === "DISABLED") {
+      await supabase.auth.signOut();
+      return redirectTo(request, LOGIN_PATH, supabaseResponse);
+    }
+
     supabaseResponse.headers.set(
       "Cache-Control",
       "no-store, no-cache, max-age=0, must-revalidate",

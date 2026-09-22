@@ -69,12 +69,36 @@ export type AuditAction =
   | "reservation.converted_to_queue"
   | "walk_in.created"
   | "walk_in.seated"
-  | "analytics.exported";
+  | "analytics.exported"
+  | "subscription.created"
+  | "subscription.updated"
+  | "subscription.upgraded"
+  | "subscription.downgraded"
+  | "subscription.cancelled"
+  | "subscription.reactivated"
+  | "payment.succeeded"
+  | "payment.failed"
+  | "RESTAURANT_SUSPENDED"
+  | "RESTAURANT_REACTIVATED"
+  | "USER_DISABLED"
+  | "USER_REENABLED"
+  | "PLAN_CREATED"
+  | "PLAN_UPDATED"
+  | "PLAN_ACTIVATED"
+  | "PLAN_DEACTIVATED"
+  | "SUBSCRIPTION_UPDATED"
+  | "SUBSCRIPTION_CANCELLED"
+  | "SUBSCRIPTION_REACTIVATED"
+  | "TRIAL_EXTENDED"
+  | "PLATFORM_SETTINGS_UPDATED"
+  | "LOGIN_FAILURE"
+  | "CUSTOMER_MERGED"
+  | "ADMIN_ACTION";
 
 export type WriteAuditLogInput = {
-  restaurantId: string;
-  organizationId?: string;
-  userId: string;
+  restaurantId?: string | null;
+  organizationId?: string | null;
+  userId?: string | null;
   action: AuditAction;
   entityType:
     | "restaurant"
@@ -92,7 +116,12 @@ export type WriteAuditLogInput = {
     | "reservation"
     | "organization"
     | "member"
-    | "invitation";
+    | "invitation"
+    | "subscription"
+    | "payment"
+    | "plan"
+    | "user"
+    | "platform_settings";
   entityId: string;
   metadata?: Record<string, Json | undefined>;
 };
@@ -105,6 +134,9 @@ export function isSensitiveAuditKey(key: string): boolean {
   return (
     lowered.includes("password") ||
     lowered.includes("token") ||
+    lowered.includes("secret") ||
+    lowered.includes("cvv") ||
+    lowered.includes("cardnumber") ||
     lowered.includes("phone") ||
     lowered.includes("email")
   );
@@ -136,9 +168,37 @@ export async function writeAuditLog(input: WriteAuditLogInput): Promise<void> {
   try {
     const supabase = await createClient();
     await supabase.from("audit_logs").insert({
-      restaurant_id: input.restaurantId,
-      organization_id: input.organizationId ?? input.restaurantId,
-      user_id: input.userId,
+      restaurant_id: input.restaurantId ?? null,
+      organization_id: input.organizationId ?? input.restaurantId ?? null,
+      user_id: input.userId ?? null,
+      action: input.action,
+      entity_type: input.entityType,
+      entity_id: input.entityId,
+      metadata: sanitizeMetadata(input.metadata),
+    });
+  } catch {
+    // Intentionally ignore — audit must not break product flows.
+  }
+}
+
+/**
+ * Platform-admin audit write via service role (cross-tenant / null restaurant).
+ */
+export async function writePlatformAuditLog(
+  input: WriteAuditLogInput,
+): Promise<void> {
+  try {
+    const { createServiceRoleClient } = await import("@/lib/supabase/admin");
+    const admin = createServiceRoleClient();
+    if (!admin) {
+      await writeAuditLog(input);
+      return;
+    }
+
+    await admin.from("audit_logs").insert({
+      restaurant_id: input.restaurantId ?? null,
+      organization_id: input.organizationId ?? null,
+      user_id: input.userId ?? null,
       action: input.action,
       entity_type: input.entityType,
       entity_id: input.entityId,

@@ -15,6 +15,8 @@ export const PUBLIC_QUEUE_MESSAGES = {
   cancelDisabled: "Cancellation is not available.",
   invalidCancel: "This queue entry can no longer be cancelled.",
   unableToJoin: "Unable to join the queue. Please try again.",
+  conflict:
+    "This phone is already in today's queue. Use your status link, or enter the same name used when joining.",
   network: "Network error. Check your connection and try again.",
   unexpected: "Something went wrong. Please try again.",
   rateLimited: "Too many requests. Please wait a moment and try again.",

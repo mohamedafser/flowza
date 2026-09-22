@@ -24,6 +24,9 @@ describe("role permissions", () => {
 
   it("restricts ADMIN from ownership-level billing manage", () => {
     expect(hasPermission("ADMIN", "billing.manage")).toBe(false);
+    expect(hasPermission("ADMIN", "billing.subscription.manage")).toBe(false);
+    expect(hasPermission("ADMIN", "billing.view")).toBe(true);
+    expect(hasPermission("ADMIN", "billing.payment.view")).toBe(true);
     expect(hasPermission("ADMIN", "settings.manage")).toBe(true);
     expect(hasPermission("ADMIN", "members.manage")).toBe(true);
   });

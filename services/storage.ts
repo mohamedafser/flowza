@@ -1,7 +1,10 @@
 import { requirePermission } from "@/lib/auth/guards";
 import { safeDatabaseMessage } from "@/lib/errors/action";
 import {
-  isAllowedLogoMimeType,
+  detectImageMimeFromBytes,
+  isDetectedLogoMime,
+} from "@/lib/security/uploads";
+import {
   LOGO_ALLOWED_MIME_TYPES,
   LOGO_MAX_BYTES,
 } from "@/lib/validations/restaurant";
@@ -49,19 +52,21 @@ export async function uploadRestaurantLogo(
 ): Promise<UploadLogoResult> {
   await requirePermission(restaurantId, "restaurant.manage");
 
-  if (!isAllowedLogoMimeType(file.type)) {
-    return {
-      ok: false,
-      code: "VALIDATION",
-      message: `Logo must be one of: ${LOGO_ALLOWED_MIME_TYPES.join(", ")}.`,
-    };
-  }
-
   if (file.size <= 0 || file.size > LOGO_MAX_BYTES) {
     return {
       ok: false,
       code: "VALIDATION",
       message: "Logo must be an image up to 2 MB.",
+    };
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const detectedMime = detectImageMimeFromBytes(buffer);
+  if (!detectedMime || !isDetectedLogoMime(detectedMime)) {
+    return {
+      ok: false,
+      code: "VALIDATION",
+      message: `Logo must be one of: ${LOGO_ALLOWED_MIME_TYPES.join(", ")}.`,
     };
   }
 
@@ -72,13 +77,12 @@ export async function uploadRestaurantLogo(
     .eq("id", restaurantId)
     .maybeSingle();
 
-  const objectPath = `${restaurantId}/${crypto.randomUUID()}.${extensionForMime(file.type)}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const objectPath = `${restaurantId}/${crypto.randomUUID()}.${extensionForMime(detectedMime)}`;
 
   const { error: uploadError } = await supabase.storage
     .from(RESTAURANT_LOGOS_BUCKET)
     .upload(objectPath, buffer, {
-      contentType: file.type,
+      contentType: detectedMime,
       upsert: false,
     });
 
