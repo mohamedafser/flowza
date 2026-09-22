@@ -5,6 +5,7 @@ import { InstallPWA } from "@/components/common/InstallPWA";
 import { ThemeToggle } from "@/components/common/ThemeToggle";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { StaffPushEnableButton } from "@/components/notifications/StaffPushEnableButton";
 import { BranchSwitcher } from "@/components/restaurant/BranchSwitcher";
 import { RestaurantSwitcher } from "@/components/restaurant/RestaurantSwitcher";
 import type { RestaurantWorkspace } from "@/lib/context/restaurant";
@@ -41,7 +42,13 @@ export function Header({ title, workspace = null }: HeaderProps) {
       <div className="ml-auto flex items-center gap-2">
         <ConnectionIndicator />
         {workspace?.restaurant ? (
-          <NotificationBell restaurantId={workspace.restaurant.id} />
+          <>
+            <StaffPushEnableButton
+              restaurantId={workspace.restaurant.id}
+              compact
+            />
+            <NotificationBell restaurantId={workspace.restaurant.id} />
+          </>
         ) : null}
         <ThemeToggle />
         <InstallPWA compact />

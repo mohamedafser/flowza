@@ -195,7 +195,7 @@ export async function joinPublicQueue(input: {
 
   if (!mapped.data.reused) {
     const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-    notifyQueueJoined(mapped.data.entry.id);
+    await notifyQueueJoined(mapped.data.entry.id);
   }
 
   return { ok: true, data: toPublicQueueJoin(mapped.data) };
@@ -273,7 +273,7 @@ export async function cancelPublicQueueEntry(
   }
 
   const { notifyQueueCancelled } = await import("@/lib/notifications/queue");
-  notifyQueueCancelled(parsed.data.entry.id);
+  await notifyQueueCancelled(parsed.data.entry.id);
 
   return { ok: true, data: toPublicQueueStatus(parsed.data) };
 }

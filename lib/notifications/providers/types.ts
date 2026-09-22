@@ -7,7 +7,7 @@ import type {
 } from "@/lib/notifications/types";
 
 export type EmailProvider = {
-  readonly name: "resend" | "none";
+  readonly name: "resend" | "smtp" | "none";
   isConfigured(): boolean;
   send(input: EmailMessage): Promise<NotificationResult>;
 };

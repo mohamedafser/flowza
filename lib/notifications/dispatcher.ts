@@ -2,23 +2,27 @@ import { createEmailProvider } from "@/lib/notifications/providers/email";
 import { createWhatsAppProvider } from "@/lib/notifications/providers/whatsapp";
 import { createSmsProvider } from "@/lib/notifications/providers/sms";
 import { createInAppProvider } from "@/lib/notifications/providers/in-app";
+import { createWebPushProvider } from "@/lib/notifications/providers/push";
 import type {
   EmailProvider,
   InAppProvider,
   SmsProvider,
   WhatsAppProvider,
 } from "@/lib/notifications/providers/types";
+import type { WebPushProvider } from "@/lib/notifications/providers/push";
 import type {
   NotificationChannel,
   NotificationResult,
   RenderedTemplate,
 } from "@/lib/notifications/types";
+import { DASHBOARD_QUEUE_PATH, getAppOrigin } from "@/lib/auth/paths";
 
 export type NotificationProviders = {
   email: EmailProvider;
   whatsapp: WhatsAppProvider;
   sms: SmsProvider;
   inApp: InAppProvider;
+  push: WebPushProvider;
 };
 
 export function createDefaultProviders(): NotificationProviders {
@@ -27,6 +31,7 @@ export function createDefaultProviders(): NotificationProviders {
     whatsapp: createWhatsAppProvider(),
     sms: createSmsProvider(),
     inApp: createInAppProvider(),
+    push: createWebPushProvider(),
   };
 }
 
@@ -35,6 +40,8 @@ export type DispatchInput = {
   recipient: string;
   template: RenderedTemplate;
   providers?: NotificationProviders;
+  restaurantId?: string;
+  audience?: "STAFF" | "CUSTOMER";
 };
 
 /**
@@ -53,6 +60,12 @@ export async function dispatchNotification(
           to: input.recipient,
           subject: input.template.subject ?? input.template.title,
           text: input.template.body,
+          html:
+            input.template.html ??
+            `<pre style="font-family:ui-sans-serif,system-ui,sans-serif;white-space:pre-wrap;line-height:1.5;margin:0;">${input.template.body
+              .replaceAll("&", "&amp;")
+              .replaceAll("<", "&lt;")
+              .replaceAll(">", "&gt;")}</pre>`,
         });
       case "WHATSAPP":
         return await providers.whatsapp.send({
@@ -70,6 +83,22 @@ export async function dispatchNotification(
           title: input.template.title,
           body: input.template.body,
         });
+      case "PUSH": {
+        const isStaff =
+          input.audience === "STAFF" ||
+          input.recipient.startsWith("restaurant:");
+        return await providers.push.send({
+          recipient: input.recipient,
+          title: input.template.title,
+          body: input.template.body,
+          url: isStaff
+            ? `${getAppOrigin()}${DASHBOARD_QUEUE_PATH}`
+            : getAppOrigin(),
+          tag: input.template.subject ?? input.template.title,
+          restaurantId: input.restaurantId,
+          audience: isStaff ? "STAFF" : "CUSTOMER",
+        });
+      }
       default: {
         const _exhaustive: never = input.channel;
         void _exhaustive;

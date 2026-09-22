@@ -11,7 +11,7 @@ async function SettingsShell({ children }: { children: React.ReactNode }) {
   return (
     <AppShell title="Settings" workspace={workspace}>
       <div className="flex flex-col gap-8 lg:flex-row">
-        <SettingsNav />
+        <SettingsNav role={workspace.role} />
         <div className="min-w-0 flex-1">{children}</div>
       </div>
     </AppShell>

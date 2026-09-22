@@ -1282,7 +1282,7 @@ export async function convertReservationToQueue(
   });
 
   const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-  notifyQueueJoined(entry.id);
+  await notifyQueueJoined(entry.id);
 
   return {
     ok: true,
@@ -1560,7 +1560,7 @@ export async function createWalkIn(
   });
 
   const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-  notifyQueueJoined(entry.id);
+  await notifyQueueJoined(entry.id);
 
   return {
     ok: true,

@@ -26,9 +26,11 @@ type ListResponse = {
 async function fetchNotifications(
   restaurantId: string,
   cursor?: string | null,
+  unreadOnly = false,
 ): Promise<ListResponse | null> {
   const params = new URLSearchParams({ restaurantId });
   if (cursor) params.set("cursor", cursor);
+  if (unreadOnly) params.set("unreadOnly", "1");
   const response = await fetch(`/api/notifications?${params.toString()}`, {
     method: "GET",
     cache: "no-store",
@@ -89,7 +91,7 @@ export function NotificationBell({ restaurantId }: NotificationBellProps) {
     let cancelled = false;
 
     async function refreshBadge() {
-      const data = await fetchNotifications(restaurantId);
+      const data = await fetchNotifications(restaurantId, null, true);
       if (cancelled || !data) return;
       setUnreadCount(data.unreadCount);
     }
@@ -133,20 +135,16 @@ export function NotificationBell({ restaurantId }: NotificationBellProps) {
     });
   }
 
-  function markAllRead() {
+  function clearAll() {
     startTransition(async () => {
       await fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "mark_all_read", restaurantId }),
       });
-      setItems((prev) =>
-        prev.map((item) => ({
-          ...item,
-          readAt: item.readAt ?? new Date().toISOString(),
-        })),
-      );
+      setItems([]);
       setUnreadCount(0);
+      setNextCursor(null);
     });
   }
 
@@ -174,18 +172,18 @@ export function NotificationBell({ restaurantId }: NotificationBellProps) {
         ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-[22rem] p-0">
-        <div className="flex items-center justify-between px-3 py-2">
+        <div className="flex items-center justify-between gap-2 px-3 py-2">
           <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
-          {unreadCount > 0 ? (
+          {items.length > 0 ? (
             <Button
               variant="ghost"
-              size="sm"
-              className="h-7 text-xs"
+              size="icon-sm"
               disabled={pending}
-              onClick={markAllRead}
+              onClick={clearAll}
+              aria-label="Clear all notifications"
+              title="Clear all notifications"
             >
               <CheckCheck />
-              Mark all read
             </Button>
           ) : null}
         </div>

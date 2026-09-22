@@ -19,6 +19,7 @@ function record(
   partial: Partial<CustomerRecord> & { id: string },
 ): CustomerRecord {
   return {
+    organization_id: restaurantA,
     restaurant_id: restaurantA,
     name: "Ada",
     phone: "+14155552671",

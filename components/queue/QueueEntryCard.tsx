@@ -3,6 +3,7 @@
 import {
   Ban,
   CheckCircle2,
+  Loader2,
   Megaphone,
   SkipForward,
   UserX,
@@ -26,6 +27,7 @@ type QueueEntryCardProps = {
   timeFormat: TimeFormat;
   canManage: boolean;
   pending: boolean;
+  loadingAction?: "call" | "complete" | null;
   onOpen: () => void;
   onCall: () => void;
   onSkip: () => void;
@@ -41,6 +43,7 @@ export function QueueEntryCard({
   timeFormat,
   canManage,
   pending,
+  loadingAction = null,
   onOpen,
   onCall,
   onSkip,
@@ -80,7 +83,9 @@ export function QueueEntryCard({
         <div>
           <dt>Wait</dt>
           <dd className="text-foreground">
-            {formatWaitMinutes(entry.estimatedWaitMinutes)}
+            {entry.estimatedWaitMinutes != null
+              ? formatWaitMinutes(entry.estimatedWaitMinutes)
+              : "—"}
           </dd>
         </div>
         <div>
@@ -96,9 +101,18 @@ export function QueueEntryCard({
       {canManage ? (
         <div className="mt-3 flex flex-wrap gap-1.5 sm:gap-2">
           {actions.canCall ? (
-            <Button size="sm" disabled={pending} onClick={onCall}>
-              <Megaphone />
-              Call
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={onCall}
+              aria-busy={loadingAction === "call"}
+            >
+              {loadingAction === "call" ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Megaphone />
+              )}
+              {loadingAction === "call" ? "Calling…" : "Call"}
             </Button>
           ) : null}
           {actions.canSeat ? (
@@ -108,9 +122,18 @@ export function QueueEntryCard({
             </Button>
           ) : null}
           {actions.canComplete ? (
-            <Button size="sm" disabled={pending} onClick={onComplete}>
-              <CheckCircle2 />
-              Complete
+            <Button
+              size="sm"
+              disabled={pending}
+              onClick={onComplete}
+              aria-busy={loadingAction === "complete"}
+            >
+              {loadingAction === "complete" ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <CheckCircle2 />
+              )}
+              {loadingAction === "complete" ? "Completing…" : "Complete"}
             </Button>
           ) : null}
           {actions.canSkip ? (

@@ -10,7 +10,7 @@ import { businessDateForTimezone } from "@/lib/queue/tokens";
 import { resolveBranchTimezone } from "@/lib/utils/timezone";
 import { createClient } from "@/lib/supabase/server";
 import {
-  loadAuthorizedAnalyticsBranch,
+  loadAuthorizedAnalyticsBranchAny,
   resolveAnalyticsRange,
 } from "@/services/analytics/access";
 import {
@@ -70,36 +70,42 @@ async function loadBranchComparison(input: {
 }): Promise<BranchComparisonRow[]> {
   const rows: BranchComparisonRow[] = [];
 
-  for (const branchId of input.compareBranchIds) {
-    const timezone = input.timezoneByBranch.get(branchId);
-    const branchName = input.branchNames.get(branchId);
-    if (!timezone || !branchName) continue;
+  const settled = await Promise.all(
+    input.compareBranchIds.map(async (branchId) => {
+      const timezone = input.timezoneByBranch.get(branchId);
+      const branchName = input.branchNames.get(branchId);
+      if (!timezone || !branchName) return null;
 
-    const range = resolveAnalyticsRange(timezone, {
-      preset: input.rangePreset,
-      startDate: input.startDate,
-      endDate: input.endDate,
-      now: input.now,
-    });
+      const range = resolveAnalyticsRange(timezone, {
+        preset: input.rangePreset,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        now: input.now,
+      });
 
-    const [queueRows, reservationRows] = await Promise.all([
-      fetchQueueAnalyticsRows({ branchId, range }),
-      fetchReservationAnalyticsRows({ branchId, range }),
-    ]);
+      const [queueRows, reservationRows] = await Promise.all([
+        fetchQueueAnalyticsRows({ branchId, range }),
+        fetchReservationAnalyticsRows({ branchId, range }),
+      ]);
 
-    const queue = getQueueAnalytics(queueRows);
-    const reservations = getReservationAnalytics(reservationRows, range);
+      const queue = getQueueAnalytics(queueRows);
+      const reservations = getReservationAnalytics(reservationRows, range);
 
-    rows.push({
-      branchId,
-      branchName,
-      customersServed: queue.completed,
-      queueVolume: queue.total,
-      averageWaitMinutes: queue.averageWaitMinutes,
-      reservations: reservations.total,
-      noShows: queue.noShow + reservations.noShow,
-      averageServiceMinutes: queue.averageServiceMinutes,
-    });
+      return {
+        branchId,
+        branchName,
+        customersServed: queue.completed,
+        queueVolume: queue.total,
+        averageWaitMinutes: queue.averageWaitMinutes,
+        reservations: reservations.total,
+        noShows: queue.noShow + reservations.noShow,
+        averageServiceMinutes: queue.averageServiceMinutes,
+      } satisfies BranchComparisonRow;
+    }),
+  );
+
+  for (const row of settled) {
+    if (row) rows.push(row);
   }
 
   return rows;
@@ -120,30 +126,10 @@ export const getDashboardOverview = cache(
       "analytics.view",
     ];
 
-    let authorized: Awaited<
-      ReturnType<typeof loadAuthorizedAnalyticsBranch>
-    > | null = null;
-    let lastError: unknown = null;
-
-    for (const permission of permissionCandidates) {
-      try {
-        authorized = await loadAuthorizedAnalyticsBranch(
-          input.branchId,
-          permission,
-        );
-        break;
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    if (!authorized) {
-      if (lastError instanceof AuthorizationError) throw lastError;
-      throw new AuthorizationError(
-        "FORBIDDEN",
-        "You do not have access to dashboard analytics.",
-      );
-    }
+    const authorized = await loadAuthorizedAnalyticsBranchAny(
+      input.branchId,
+      permissionCandidates,
+    );
 
     const role = authorized.context.role;
     const permissions = {

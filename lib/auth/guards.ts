@@ -9,11 +9,14 @@ import {
 import type { MemberRole } from "@/lib/auth/roles";
 import {
   getAuthContext,
+  getMembershipForOrganization,
   getMembershipForRestaurant,
   isEmailVerified,
   type AuthContext,
   type MembershipWithRestaurant,
+  type Organization,
 } from "@/lib/auth/session";
+import { organizationIdFromRestaurant } from "@/lib/tenancy/organization";
 
 export class AuthorizationError extends Error {
   readonly code:
@@ -51,7 +54,11 @@ export async function requireVerifiedAuth(): Promise<AuthContext> {
 export async function requireRestaurantMembership(
   restaurantId: string,
 ): Promise<
-  AuthContext & { membership: MembershipWithRestaurant; role: MemberRole }
+  AuthContext & {
+    membership: MembershipWithRestaurant;
+    role: MemberRole;
+    organizationId: string;
+  }
 > {
   const context = await requireVerifiedAuth();
   const membership = await getMembershipForRestaurant(
@@ -66,10 +73,60 @@ export async function requireRestaurantMembership(
     );
   }
 
+  const organizationId =
+    organizationIdFromRestaurant(membership.restaurant) ??
+    membership.organization_id;
+
+  if (!organizationId) {
+    throw new AuthorizationError(
+      "NO_MEMBERSHIP",
+      "You do not belong to this organization.",
+    );
+  }
+
   return {
     ...context,
     membership,
     restaurant: membership.restaurant,
+    organizationId,
+    role: membership.role,
+  };
+}
+
+/**
+ * Resolve tenant access from the authenticated user's organization.
+ * Never accept organizationId from the request as the source of truth —
+ * callers must pass the id derived from a membership-checked resource or
+ * from AuthContext.organizationId.
+ */
+export async function requireOrganizationMembership(
+  organizationId: string,
+): Promise<
+  AuthContext & {
+    membership: MembershipWithRestaurant;
+    role: MemberRole;
+    organizationId: string;
+    organization: Organization | null;
+  }
+> {
+  const context = await requireVerifiedAuth();
+  const membership = await getMembershipForOrganization(
+    context.user.id,
+    organizationId,
+  );
+
+  if (!membership) {
+    throw new AuthorizationError(
+      "NO_MEMBERSHIP",
+      "You do not belong to this organization.",
+    );
+  }
+
+  return {
+    ...context,
+    membership,
+    restaurant: membership.restaurant,
+    organizationId,
     role: membership.role,
   };
 }
@@ -78,7 +135,11 @@ export async function requirePermission(
   restaurantId: string,
   permission: Permission,
 ): Promise<
-  AuthContext & { membership: MembershipWithRestaurant; role: MemberRole }
+  AuthContext & {
+    membership: MembershipWithRestaurant;
+    role: MemberRole;
+    organizationId: string;
+  }
 > {
   const context = await requireRestaurantMembership(restaurantId);
 

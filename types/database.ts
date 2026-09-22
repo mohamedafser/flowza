@@ -53,9 +53,282 @@ export type Database = {
           },
         ];
       };
+
+      organizations: {
+        Row: {
+          id: string;
+          name: string;
+          business_type: Database["public"]["Enums"]["organization_business_type"];
+          status: Database["public"]["Enums"]["organization_status"];
+          plan_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          business_type?: Database["public"]["Enums"]["organization_business_type"];
+          status?: Database["public"]["Enums"]["organization_status"];
+          plan_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          business_type?: Database["public"]["Enums"]["organization_business_type"];
+          status?: Database["public"]["Enums"]["organization_status"];
+          plan_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organizations_plan_id_fkey";
+            columns: ["plan_id"];
+            isOneToOne: false;
+            referencedRelation: "plans";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      plans: {
+        Row: {
+          id: string;
+          name: string;
+          price: number;
+          currency: string;
+          billing_cycle: Database["public"]["Enums"]["billing_cycle"];
+          features: Json;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          price?: number;
+          currency?: string;
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
+          features?: Json;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          price?: number;
+          currency?: string;
+          billing_cycle?: Database["public"]["Enums"]["billing_cycle"];
+          features?: Json;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      payments: {
+        Row: {
+          id: string;
+          organization_id: string;
+          subscription_id: string | null;
+          amount: number;
+          currency: string;
+          status: string;
+          provider_payment_id: string | null;
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          subscription_id?: string | null;
+          amount: number;
+          currency?: string;
+          status?: string;
+          provider_payment_id?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          subscription_id?: string | null;
+          amount?: number;
+          currency?: string;
+          status?: string;
+          provider_payment_id?: string | null;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "payments_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "payments_subscription_id_fkey";
+            columns: ["subscription_id"];
+            isOneToOne: false;
+            referencedRelation: "subscriptions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      organization_invitations: {
+        Row: {
+          id: string;
+          organization_id: string;
+          restaurant_id: string;
+          email: string;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["invitation_status"];
+          invited_by: string | null;
+          accepted_by: string | null;
+          accepted_at: string | null;
+          expires_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          organization_id: string;
+          restaurant_id: string;
+          email: string;
+          role?: Database["public"]["Enums"]["member_role"];
+          status?: Database["public"]["Enums"]["invitation_status"];
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          organization_id?: string;
+          restaurant_id?: string;
+          email?: string;
+          role?: Database["public"]["Enums"]["member_role"];
+          status?: Database["public"]["Enums"]["invitation_status"];
+          invited_by?: string | null;
+          accepted_by?: string | null;
+          accepted_at?: string | null;
+          expires_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "organization_invitations_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_invitations_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_invitations_invited_by_fkey";
+            columns: ["invited_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "organization_invitations_accepted_by_fkey";
+            columns: ["accepted_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      auth_otps: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          email: string;
+          purpose: Database["public"]["Enums"]["auth_otp_purpose"];
+          otp_hash: string;
+          expires_at: string;
+          verified_at: string | null;
+          attempt_count: number;
+          last_sent_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          email: string;
+          purpose: Database["public"]["Enums"]["auth_otp_purpose"];
+          otp_hash: string;
+          expires_at: string;
+          verified_at?: string | null;
+          attempt_count?: number;
+          last_sent_at?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          email?: string;
+          purpose?: Database["public"]["Enums"]["auth_otp_purpose"];
+          otp_hash?: string;
+          expires_at?: string;
+          verified_at?: string | null;
+          attempt_count?: number;
+          last_sent_at?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      password_reset_authorizations: {
+        Row: {
+          id: string;
+          user_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          used_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          email: string;
+          token_hash: string;
+          expires_at: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          email?: string;
+          token_hash?: string;
+          expires_at?: string;
+          used_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       restaurants: {
         Row: {
           id: string;
+          organization_id: string;
           name: string;
           slug: string;
           logo_url: string | null;
@@ -70,6 +343,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          organization_id: string;
           name: string;
           slug: string;
           logo_url?: string | null;
@@ -84,6 +358,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          organization_id?: string;
           name?: string;
           slug?: string;
           logo_url?: string | null;
@@ -96,12 +371,21 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "restaurants_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: true;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       restaurant_members: {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           user_id: string;
           role: Database["public"]["Enums"]["member_role"];
           status: Database["public"]["Enums"]["member_status"];
@@ -111,6 +395,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id: string;
           user_id: string;
           role?: Database["public"]["Enums"]["member_role"];
           status?: Database["public"]["Enums"]["member_status"];
@@ -120,6 +405,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           user_id?: string;
           role?: Database["public"]["Enums"]["member_role"];
           status?: Database["public"]["Enums"]["member_status"];
@@ -135,6 +421,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "restaurant_members_organization_id_fkey";
+            columns: ["organization_id"];
+            isOneToOne: false;
+            referencedRelation: "organizations";
+            referencedColumns: ["id"];
+          },
+          {
             foreignKeyName: "restaurant_members_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
@@ -147,6 +440,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           name: string;
           slug: string;
           address_line_1: string | null;
@@ -166,6 +460,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           name: string;
           slug: string;
           address_line_1?: string | null;
@@ -185,6 +480,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           name?: string;
           slug?: string;
           address_line_1?: string | null;
@@ -215,6 +511,7 @@ export type Database = {
         Row: {
           id: string;
           branch_id: string;
+          organization_id: string;
           name: string;
           sort_order: number;
           created_at: string;
@@ -223,6 +520,7 @@ export type Database = {
         Insert: {
           id?: string;
           branch_id: string;
+          organization_id?: string;
           name: string;
           sort_order?: number;
           created_at?: string;
@@ -231,6 +529,7 @@ export type Database = {
         Update: {
           id?: string;
           branch_id?: string;
+          organization_id?: string;
           name?: string;
           sort_order?: number;
           created_at?: string;
@@ -250,6 +549,7 @@ export type Database = {
         Row: {
           id: string;
           branch_id: string;
+          organization_id: string;
           section_id: string | null;
           table_number: string;
           name: string | null;
@@ -262,6 +562,7 @@ export type Database = {
         Insert: {
           id?: string;
           branch_id: string;
+          organization_id?: string;
           section_id?: string | null;
           table_number: string;
           name?: string | null;
@@ -274,6 +575,7 @@ export type Database = {
         Update: {
           id?: string;
           branch_id?: string;
+          organization_id?: string;
           section_id?: string | null;
           table_number?: string;
           name?: string | null;
@@ -304,6 +606,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           name: string;
           phone: string | null;
           email: string | null;
@@ -313,6 +616,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           name: string;
           phone?: string | null;
           email?: string | null;
@@ -322,6 +626,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           name?: string;
           phone?: string | null;
           email?: string | null;
@@ -342,6 +647,7 @@ export type Database = {
         Row: {
           id: string;
           branch_id: string;
+          organization_id: string;
           name: string;
           status: Database["public"]["Enums"]["queue_status"];
           prefix: string;
@@ -354,6 +660,7 @@ export type Database = {
         Insert: {
           id?: string;
           branch_id: string;
+          organization_id?: string;
           name: string;
           status?: Database["public"]["Enums"]["queue_status"];
           prefix?: string;
@@ -366,6 +673,7 @@ export type Database = {
         Update: {
           id?: string;
           branch_id?: string;
+          organization_id?: string;
           name?: string;
           status?: Database["public"]["Enums"]["queue_status"];
           prefix?: string;
@@ -389,6 +697,7 @@ export type Database = {
         Row: {
           id: string;
           queue_id: string;
+          organization_id: string;
           customer_id: string | null;
           table_id: string | null;
           reservation_id: string | null;
@@ -410,6 +719,7 @@ export type Database = {
         Insert: {
           id?: string;
           queue_id: string;
+          organization_id?: string;
           customer_id?: string | null;
           table_id?: string | null;
           reservation_id?: string | null;
@@ -431,6 +741,7 @@ export type Database = {
         Update: {
           id?: string;
           queue_id?: string;
+          organization_id?: string;
           customer_id?: string | null;
           table_id?: string | null;
           reservation_id?: string | null;
@@ -484,6 +795,7 @@ export type Database = {
         Row: {
           id: string;
           queue_entry_id: string;
+          organization_id: string;
           event_type: Database["public"]["Enums"]["queue_event_type"];
           metadata: Json;
           created_by: string | null;
@@ -492,6 +804,7 @@ export type Database = {
         Insert: {
           id?: string;
           queue_entry_id: string;
+          organization_id?: string;
           event_type: Database["public"]["Enums"]["queue_event_type"];
           metadata?: Json;
           created_by?: string | null;
@@ -500,6 +813,7 @@ export type Database = {
         Update: {
           id?: string;
           queue_entry_id?: string;
+          organization_id?: string;
           event_type?: Database["public"]["Enums"]["queue_event_type"];
           metadata?: Json;
           created_by?: string | null;
@@ -526,6 +840,7 @@ export type Database = {
         Row: {
           id: string;
           branch_id: string;
+          organization_id: string;
           queue_id: string;
           name: string;
           display_code: string;
@@ -540,6 +855,7 @@ export type Database = {
         Insert: {
           id?: string;
           branch_id: string;
+          organization_id?: string;
           queue_id: string;
           name: string;
           display_code: string;
@@ -554,6 +870,7 @@ export type Database = {
         Update: {
           id?: string;
           branch_id?: string;
+          organization_id?: string;
           queue_id?: string;
           name?: string;
           display_code?: string;
@@ -587,6 +904,7 @@ export type Database = {
           id: string;
           restaurant_id: string;
           branch_id: string;
+          organization_id: string;
           queue_id: string;
           name: string;
           type: Database["public"]["Enums"]["qr_code_type"];
@@ -600,6 +918,7 @@ export type Database = {
           id?: string;
           restaurant_id: string;
           branch_id: string;
+          organization_id?: string;
           queue_id: string;
           name: string;
           type?: Database["public"]["Enums"]["qr_code_type"];
@@ -613,6 +932,7 @@ export type Database = {
           id?: string;
           restaurant_id?: string;
           branch_id?: string;
+          organization_id?: string;
           queue_id?: string;
           name?: string;
           type?: Database["public"]["Enums"]["qr_code_type"];
@@ -650,6 +970,7 @@ export type Database = {
         Row: {
           id: string;
           branch_id: string;
+          organization_id: string;
           customer_id: string | null;
           reservation_code: string | null;
           reservation_date: string;
@@ -675,6 +996,7 @@ export type Database = {
         Insert: {
           id?: string;
           branch_id: string;
+          organization_id?: string;
           customer_id?: string | null;
           reservation_code?: string | null;
           reservation_date: string;
@@ -700,6 +1022,7 @@ export type Database = {
         Update: {
           id?: string;
           branch_id?: string;
+          organization_id?: string;
           customer_id?: string | null;
           reservation_code?: string | null;
           reservation_date?: string;
@@ -757,6 +1080,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           customer_id: string | null;
           queue_entry_id: string | null;
           reservation_id: string | null;
@@ -784,6 +1108,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           customer_id?: string | null;
           queue_entry_id?: string | null;
           reservation_id?: string | null;
@@ -811,6 +1136,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           customer_id?: string | null;
           queue_entry_id?: string | null;
           reservation_id?: string | null;
@@ -910,6 +1236,7 @@ export type Database = {
         Row: {
           customer_id: string;
           restaurant_id: string;
+          organization_id: string;
           email_enabled: boolean;
           whatsapp_enabled: boolean;
           sms_enabled: boolean;
@@ -923,6 +1250,7 @@ export type Database = {
         Insert: {
           customer_id: string;
           restaurant_id: string;
+          organization_id?: string;
           email_enabled?: boolean;
           whatsapp_enabled?: boolean;
           sms_enabled?: boolean;
@@ -936,6 +1264,7 @@ export type Database = {
         Update: {
           customer_id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           email_enabled?: boolean;
           whatsapp_enabled?: boolean;
           sms_enabled?: boolean;
@@ -963,10 +1292,85 @@ export type Database = {
           },
         ];
       };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          restaurant_id: string;
+          organization_id: string | null;
+          audience: string;
+          user_id: string | null;
+          customer_id: string | null;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time: string | null;
+          user_agent: string | null;
+          click_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          restaurant_id: string;
+          organization_id?: string | null;
+          audience: string;
+          user_id?: string | null;
+          customer_id?: string | null;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          expiration_time?: string | null;
+          user_agent?: string | null;
+          click_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          restaurant_id?: string;
+          organization_id?: string | null;
+          audience?: string;
+          user_id?: string | null;
+          customer_id?: string | null;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          expiration_time?: string | null;
+          user_agent?: string | null;
+          click_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_restaurant_id_fkey";
+            columns: ["restaurant_id"];
+            isOneToOne: false;
+            referencedRelation: "restaurants";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "push_subscriptions_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       subscriptions: {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
+          plan_id: string | null;
           plan: string;
           status: Database["public"]["Enums"]["subscription_status"];
           provider: string | null;
@@ -979,6 +1383,8 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
+          plan_id?: string | null;
           plan: string;
           status?: Database["public"]["Enums"]["subscription_status"];
           provider?: string | null;
@@ -991,6 +1397,8 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
+          plan_id?: string | null;
           plan?: string;
           status?: Database["public"]["Enums"]["subscription_status"];
           provider?: string | null;
@@ -1014,6 +1422,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           user_id: string | null;
           action: string;
           entity_type: string;
@@ -1024,6 +1433,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           user_id?: string | null;
           action: string;
           entity_type: string;
@@ -1034,6 +1444,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           user_id?: string | null;
           action?: string;
           entity_type?: string;
@@ -1061,6 +1472,7 @@ export type Database = {
       restaurant_settings: {
         Row: {
           restaurant_id: string;
+          organization_id: string;
           queue_enabled: boolean;
           default_queue_name: string;
           token_prefix: string;
@@ -1094,6 +1506,7 @@ export type Database = {
         };
         Insert: {
           restaurant_id: string;
+          organization_id?: string;
           queue_enabled?: boolean;
           default_queue_name?: string;
           token_prefix?: string;
@@ -1127,6 +1540,7 @@ export type Database = {
         };
         Update: {
           restaurant_id?: string;
+          organization_id?: string;
           queue_enabled?: boolean;
           default_queue_name?: string;
           token_prefix?: string;
@@ -1172,6 +1586,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           branch_id: string | null;
           day_of_week: number;
           is_closed: boolean;
@@ -1181,6 +1596,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           branch_id?: string | null;
           day_of_week: number;
           is_closed?: boolean;
@@ -1190,6 +1606,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           branch_id?: string | null;
           day_of_week?: number;
           is_closed?: boolean;
@@ -1255,6 +1672,7 @@ export type Database = {
         Row: {
           id: string;
           restaurant_id: string;
+          organization_id: string;
           branch_id: string | null;
           date: string;
           is_closed: boolean;
@@ -1267,6 +1685,7 @@ export type Database = {
         Insert: {
           id?: string;
           restaurant_id: string;
+          organization_id?: string;
           branch_id?: string | null;
           date: string;
           is_closed?: boolean;
@@ -1279,6 +1698,7 @@ export type Database = {
         Update: {
           id?: string;
           restaurant_id?: string;
+          organization_id?: string;
           branch_id?: string | null;
           date?: string;
           is_closed?: boolean;
@@ -1317,8 +1737,89 @@ export type Database = {
           p_website: string | null;
           p_description: string | null;
           p_timezone: string;
+          p_business_type?: Database["public"]["Enums"]["organization_business_type"];
         };
         Returns: Database["public"]["Tables"]["restaurants"]["Row"];
+      };
+      is_organization_member: {
+        Args: { p_organization_id: string };
+        Returns: boolean;
+      };
+      has_organization_role: {
+        Args: {
+          p_organization_id: string;
+          p_roles: Database["public"]["Enums"]["member_role"][];
+        };
+        Returns: boolean;
+      };
+      organization_id_for_restaurant: {
+        Args: { p_restaurant_id: string };
+        Returns: string;
+      };
+      current_organization_role: {
+        Args: { p_organization_id: string };
+        Returns: Database["public"]["Enums"]["member_role"] | null;
+      };
+      list_organization_members: {
+        Args: { p_organization_id: string };
+        Returns: {
+          id: string;
+          user_id: string;
+          organization_id: string;
+          restaurant_id: string;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["member_status"];
+          full_name: string | null;
+          email: string | null;
+          created_at: string;
+          updated_at: string;
+        }[];
+      };
+      invite_organization_member: {
+        Args: {
+          p_organization_id: string;
+          p_email: string;
+          p_role: Database["public"]["Enums"]["member_role"];
+        };
+        Returns: {
+          outcome: "ADDED" | "INVITED";
+          email: string;
+          role: Database["public"]["Enums"]["member_role"];
+          restaurant_id: string;
+          member_id: string | null;
+          invitation_id: string | null;
+          expires_at: string | null;
+        };
+      };
+      list_organization_invitations: {
+        Args: { p_organization_id: string };
+        Returns: {
+          id: string;
+          organization_id: string;
+          restaurant_id: string;
+          email: string;
+          role: Database["public"]["Enums"]["member_role"];
+          status: Database["public"]["Enums"]["invitation_status"];
+          invited_by: string | null;
+          invited_by_name: string | null;
+          expires_at: string;
+          created_at: string;
+        }[];
+      };
+      revoke_organization_invitation: {
+        Args: { p_invitation_id: string };
+        Returns: Database["public"]["Tables"]["organization_invitations"]["Row"];
+      };
+      update_organization_member_role: {
+        Args: {
+          p_member_id: string;
+          p_role: Database["public"]["Enums"]["member_role"];
+        };
+        Returns: Database["public"]["Tables"]["restaurant_members"]["Row"];
+      };
+      remove_organization_member: {
+        Args: { p_member_id: string };
+        Returns: Database["public"]["Tables"]["restaurant_members"]["Row"];
       };
       is_restaurant_member: {
         Args: { p_restaurant_id: string };
@@ -1509,9 +2010,15 @@ export type Database = {
       };
     };
     Enums: {
+      organization_business_type:
+        "RESTAURANT" | "SALON" | "CLINIC" | "CAR_SERVICE" | "OTHER";
+      organization_status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
+      billing_cycle: "MONTHLY" | "YEARLY";
       restaurant_status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
       member_role: "OWNER" | "ADMIN" | "MANAGER" | "STAFF";
       member_status: "ACTIVE" | "INVITED" | "SUSPENDED";
+      invitation_status: "PENDING" | "ACCEPTED" | "REVOKED";
+      auth_otp_purpose: "SIGNUP" | "PASSWORD_RESET" | "INVITATION";
       table_status:
         "AVAILABLE" | "OCCUPIED" | "CLEANING" | "RESERVED" | "BLOCKED";
       queue_status: "ACTIVE" | "PAUSED" | "CLOSED";
@@ -1541,7 +2048,7 @@ export type Database = {
         | "COMPLETED"
         | "CANCELLED"
         | "NO_SHOW";
-      notification_channel: "EMAIL" | "SMS" | "WHATSAPP" | "IN_APP";
+      notification_channel: "EMAIL" | "SMS" | "WHATSAPP" | "IN_APP" | "PUSH";
       notification_status:
         "PENDING" | "PROCESSING" | "SENT" | "FAILED" | "CANCELLED";
       subscription_status:
@@ -1566,8 +2073,14 @@ export type Enums<T extends keyof Database["public"]["Enums"]> =
 /** Core application tables introduced in Phase 2. */
 export const DATABASE_TABLES = [
   "profiles",
+  "organizations",
+  "plans",
+  "payments",
   "restaurants",
   "restaurant_members",
+  "organization_invitations",
+  "auth_otps",
+  "password_reset_authorizations",
   "branches",
   "table_sections",
   "restaurant_tables",
@@ -1581,6 +2094,7 @@ export const DATABASE_TABLES = [
   "notifications",
   "notification_reads",
   "customer_notification_preferences",
+  "push_subscriptions",
   "subscriptions",
   "audit_logs",
   "restaurant_settings",

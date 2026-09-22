@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { AppLogo } from "@/components/common/AppLogo";
 import { DASHBOARD_NAV } from "@/lib/constants";
-import { canViewAnalytics } from "@/lib/utils/analytics";
+import { filterNavByRole } from "@/lib/auth/navigation";
 import type { MemberRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +39,7 @@ type SidebarProps = {
 
 export function Sidebar({ className, onNavigate, role = null }: SidebarProps) {
   const pathname = usePathname();
-  const items = DASHBOARD_NAV.filter((item) => {
-    if (item.href === "/dashboard/analytics") {
-      return role ? canViewAnalytics(role) : true;
-    }
-    return true;
-  });
+  const items = filterNavByRole(DASHBOARD_NAV, role);
 
   return (
     <aside

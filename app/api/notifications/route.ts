@@ -5,6 +5,7 @@ import {
   jsonOk,
   readJsonBody,
 } from "@/lib/api/json";
+import { startTimer } from "@/lib/api/perf";
 import {
   listStaffNotifications,
   markAllStaffNotificationsRead,
@@ -18,27 +19,47 @@ const listQuerySchema = z.object({
   restaurantId: z.string().uuid(),
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(50).optional(),
+  unreadOnly: z
+    .enum(["1", "true", "yes"])
+    .optional()
+    .transform((value) => Boolean(value)),
 });
 
 /**
  * GET /api/notifications?restaurantId=...
+ * GET /api/notifications?restaurantId=...&unreadOnly=1  (badge poll)
  */
 export async function GET(request: Request) {
+  const timer = startTimer();
   try {
     const url = new URL(request.url);
     const parsed = listQuerySchema.safeParse({
       restaurantId: url.searchParams.get("restaurantId"),
       cursor: url.searchParams.get("cursor") ?? undefined,
       limit: url.searchParams.get("limit") ?? undefined,
+      unreadOnly: url.searchParams.get("unreadOnly") ?? undefined,
     });
 
     if (!parsed.success) {
       return jsonFail("VALIDATION", "Invalid notification query.", 400);
     }
 
-    const data = await listStaffNotifications(parsed.data);
+    const data = await timer.measure("database", () =>
+      listStaffNotifications({
+        restaurantId: parsed.data.restaurantId,
+        cursor: parsed.data.cursor,
+        limit: parsed.data.limit,
+        unreadOnly: parsed.data.unreadOnly,
+      }),
+    );
+    timer.log(
+      parsed.data.unreadOnly
+        ? "GET /api/notifications?unreadOnly=1"
+        : "GET /api/notifications",
+    );
     return jsonOk(data);
   } catch (error) {
+    timer.log("GET /api/notifications (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }

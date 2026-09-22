@@ -25,6 +25,7 @@ describe("Phase 2 database foundation", () => {
       true,
     );
     expect(files.some((f) => f.includes("dashboard_analytics"))).toBe(true);
+    expect(files.some((f) => f.includes("organization_tenancy"))).toBe(true);
   });
 
   it("includes development seed data without customer PII tables", () => {
@@ -32,6 +33,7 @@ describe("Phase 2 database foundation", () => {
     expect(existsSync(seedPath)).toBe(true);
     const seed = readFileSync(seedPath, "utf8");
     expect(seed).toContain("Demo Restaurant");
+    expect(seed).toContain("organizations");
     expect(seed).toContain("Demo Branch");
     expect(seed).toContain("Main Queue");
     expect(seed.toLowerCase()).not.toContain("insert into public.customers");
@@ -40,8 +42,14 @@ describe("Phase 2 database foundation", () => {
   it("exposes typed table names matching the Phase 2 model", () => {
     expect(DATABASE_TABLES).toEqual([
       "profiles",
+      "organizations",
+      "plans",
+      "payments",
       "restaurants",
       "restaurant_members",
+      "organization_invitations",
+      "auth_otps",
+      "password_reset_authorizations",
       "branches",
       "table_sections",
       "restaurant_tables",
@@ -65,7 +73,7 @@ describe("Phase 2 database foundation", () => {
 
     type PublicTables = keyof Database["public"]["Tables"];
     const _assert: PublicTables[] = [...DATABASE_TABLES];
-    expect(_assert.length).toBe(22);
+    expect(_assert.length).toBe(28);
   });
 
   it("enables RLS in the policies migration", () => {
@@ -92,6 +100,60 @@ describe("Phase 2 database foundation", () => {
     expect(sql).toContain("special_hours_select_member");
     expect(sql).not.toMatch(
       /CREATE POLICY[\s\S]{0,200}USING\s*\(\s*true\s*\)/i,
+    );
+  });
+
+  it("adds organization tenancy migration with org helpers and RLS", () => {
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    const orgFile = files.find((f) => f.includes("organization_tenancy"));
+    expect(orgFile).toBeTruthy();
+    const sql = readFileSync(resolve(migrationsDir, orgFile!), "utf8");
+    expect(sql).toContain("CREATE TABLE public.organizations");
+    expect(sql).toContain("is_organization_member");
+    expect(sql).toContain("organization_id");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+  });
+
+  it("adds organization member management RPCs", () => {
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    const memberFile = files.find((f) => f.includes("organization_members"));
+    expect(memberFile).toBeTruthy();
+    const sql = readFileSync(resolve(migrationsDir, memberFile!), "utf8");
+    expect(sql).toContain("public.list_organization_members");
+    expect(sql).toContain("public.add_organization_member");
+    expect(sql).toContain("public.update_organization_member_role");
+    expect(sql).toContain("public.remove_organization_member");
+    expect(sql).toContain("MEMBER_LAST_OWNER");
+    expect(sql).toContain("GRANT EXECUTE");
+  });
+
+  it("parks invitations for people without an account yet", () => {
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    const inviteFile = files.find((f) =>
+      f.includes("organization_invitations"),
+    );
+    expect(inviteFile).toBeTruthy();
+    const sql = readFileSync(resolve(migrationsDir, inviteFile!), "utf8");
+    expect(sql).toContain("CREATE TABLE public.organization_invitations");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(sql).toContain("public.invite_organization_member");
+    expect(sql).toContain("public.revoke_organization_invitation");
+    // Signing up with an invited email must grant the membership automatically.
+    expect(sql).toContain("public.accept_pending_invitations");
+    expect(sql).toContain("AFTER INSERT ON auth.users");
+  });
+
+  it("adds hashed auth OTP storage for signup and password reset", () => {
+    const files = readdirSync(migrationsDir).filter((f) => f.endsWith(".sql"));
+    const otpFile = files.find((f) => f.includes("auth_otps"));
+    expect(otpFile).toBeTruthy();
+    const sql = readFileSync(resolve(migrationsDir, otpFile!), "utf8");
+    expect(sql).toContain("CREATE TABLE public.auth_otps");
+    expect(sql).toContain("otp_hash");
+    expect(sql).toContain("password_reset_authorizations");
+    expect(sql).toContain("ENABLE ROW LEVEL SECURITY");
+    expect(sql).toContain(
+      "GRANT ALL ON TABLE public.auth_otps TO service_role",
     );
   });
 });

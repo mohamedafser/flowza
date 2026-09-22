@@ -199,6 +199,30 @@ export const seatQueueEntrySchema = z.object({
 
 export type SeatQueueEntryInput = z.infer<typeof seatQueueEntrySchema>;
 
+export const queueEntryActionSchema = z
+  .object({
+    action: z.enum([
+      "call",
+      "skip",
+      "cancel",
+      "no_show",
+      "seat",
+      "complete",
+    ]),
+    tableId: z.string().uuid("Select a table").optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action === "seat" && !value.tableId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Select a table",
+        path: ["tableId"],
+      });
+    }
+  });
+
+export type QueueEntryActionInput = z.infer<typeof queueEntryActionSchema>;
+
 export const searchQueueCustomersSchema = z.object({
   query: z.string().trim().max(120, "Search is too long"),
 });

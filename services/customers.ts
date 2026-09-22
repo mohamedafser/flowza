@@ -58,6 +58,7 @@ type CustomerRow = Tables<"customers">;
 function asCustomer(row: CustomerRow): CustomerRecord {
   return {
     id: row.id,
+    organization_id: row.organization_id,
     restaurant_id: row.restaurant_id,
     name: row.name,
     phone: row.phone,
@@ -87,11 +88,14 @@ async function loadAuthorizedCustomer(
   permission: "customers.view" | "customers.manage",
 ) {
   const { restaurant, context } = await requireCurrentRestaurant(permission);
+  const organizationId =
+    restaurant.organization_id ?? context.organizationId ?? restaurant.id;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("customers")
     .select("*")
     .eq("id", customerId)
+    .eq("organization_id", organizationId)
     .maybeSingle();
 
   if (error || !data) {
@@ -102,6 +106,9 @@ async function loadAuthorizedCustomer(
     membershipRestaurantId: context.membership.restaurant_id,
     customerRestaurantId: data.restaurant_id,
     currentRestaurantId: restaurant.id,
+    membershipOrganizationId: organizationId,
+    customerOrganizationId: data.organization_id,
+    currentOrganizationId: organizationId,
   });
 
   if (!scoped.ok) {
@@ -121,12 +128,19 @@ export async function findPotentialDuplicateCustomer(
   }
 
   const supabase = await createClient();
+  const { data: restaurant } = await supabase
+    .from("restaurants")
+    .select("id, organization_id")
+    .eq("id", restaurantId)
+    .maybeSingle();
+
+  const organizationId = restaurant?.organization_id ?? restaurantId;
 
   if (input.phone) {
     let phoneQuery = supabase
       .from("customers")
       .select("id, name, phone")
-      .eq("restaurant_id", restaurantId)
+      .eq("organization_id", organizationId)
       .eq("phone", input.phone);
     if (excludeId) {
       phoneQuery = phoneQuery.neq("id", excludeId);
@@ -146,7 +160,7 @@ export async function findPotentialDuplicateCustomer(
     let emailQuery = supabase
       .from("customers")
       .select("id, name, phone")
-      .eq("restaurant_id", restaurantId)
+      .eq("organization_id", organizationId)
       .eq("email", input.email);
     if (excludeId) {
       emailQuery = emailQuery.neq("id", excludeId);
@@ -172,8 +186,11 @@ export const getCustomersBundle = cache(
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("customers")
-      .select("*")
+      .select(
+        "id, organization_id, restaurant_id, name, phone, email, created_at, updated_at",
+      )
       .eq("restaurant_id", restaurant.id)
+      .eq("organization_id", restaurant.organization_id)
       .order("created_at", { ascending: false })
       .order("name", { ascending: true });
 
@@ -243,6 +260,7 @@ export async function createCustomer(
     .from("customers")
     .insert({
       restaurant_id: restaurant.id,
+      organization_id: restaurant.organization_id,
       name: input.name,
       phone: input.phone,
       email: input.email,

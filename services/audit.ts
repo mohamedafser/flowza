@@ -9,6 +9,13 @@ export type AuditAction =
   | "restaurant.queue_settings_updated"
   | "restaurant.customer_settings_updated"
   | "restaurant.notification_settings_updated"
+  | "organization.created"
+  | "organization.updated"
+  | "member.added"
+  | "member.invited"
+  | "member.invite_revoked"
+  | "member.role_updated"
+  | "member.removed"
   | "branch.created"
   | "branch.updated"
   | "branch.activated"
@@ -66,6 +73,7 @@ export type AuditAction =
 
 export type WriteAuditLogInput = {
   restaurantId: string;
+  organizationId?: string;
   userId: string;
   action: AuditAction;
   entityType:
@@ -81,7 +89,10 @@ export type WriteAuditLogInput = {
     | "queue_entry"
     | "display"
     | "qr_code"
-    | "reservation";
+    | "reservation"
+    | "organization"
+    | "member"
+    | "invitation";
   entityId: string;
   metadata?: Record<string, Json | undefined>;
 };
@@ -126,6 +137,7 @@ export async function writeAuditLog(input: WriteAuditLogInput): Promise<void> {
     const supabase = await createClient();
     await supabase.from("audit_logs").insert({
       restaurant_id: input.restaurantId,
+      organization_id: input.organizationId ?? input.restaurantId,
       user_id: input.userId,
       action: input.action,
       entity_type: input.entityType,

@@ -14,6 +14,7 @@ import type {
 
 export type CustomerRecord = {
   id: string;
+  organization_id: string;
   restaurant_id: string;
   name: string;
   phone: string | null;
@@ -61,10 +62,13 @@ export type CustomerScopeInput = {
   membershipRestaurantId: string;
   customerRestaurantId: string;
   currentRestaurantId: string;
+  membershipOrganizationId?: string | null;
+  customerOrganizationId?: string | null;
+  currentOrganizationId?: string | null;
 };
 
 export type CustomerScopeResult =
-  { ok: true } | { ok: false; reason: "restaurant" };
+  { ok: true } | { ok: false; reason: "restaurant" | "organization" };
 
 export function emptyVisitSummary(): CustomerVisitSummary {
   return { visitCount: null, lastVisitAt: null };
@@ -93,6 +97,23 @@ export function authorizeCustomerScope(
   ) {
     return { ok: false, reason: "restaurant" };
   }
+
+  const orgIds = [
+    input.membershipOrganizationId,
+    input.customerOrganizationId,
+    input.currentOrganizationId,
+  ].filter((value): value is string => Boolean(value));
+
+  if (orgIds.length > 0) {
+    const expected =
+      input.currentOrganizationId ??
+      input.membershipOrganizationId ??
+      orgIds[0]!;
+    if (orgIds.some((id) => id !== expected)) {
+      return { ok: false, reason: "organization" };
+    }
+  }
+
   return { ok: true };
 }
 

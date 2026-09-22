@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { resetPasswordAction } from "@/app/actions/auth";
+import { ArrowRight, CheckCircle2, LockKeyhole } from "lucide-react";
+import { resetPasswordRequest } from "@/lib/api/auth-client";
 import { AuthCard, AuthLink } from "@/components/auth/AuthCard";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
@@ -27,15 +28,16 @@ export function ResetPasswordForm() {
   });
 
   const onSubmit = form.handleSubmit((values) => {
+    if (pending) return;
     startTransition(async () => {
-      const result = await resetPasswordAction(values);
+      const result = await resetPasswordRequest(values);
       if (!result.ok) {
         toast.error(result.message ?? "Unable to update password.");
         return;
       }
       setDone(true);
       toast.success(result.message);
-      router.replace(LOGIN_PATH);
+      router.replace(result.data?.redirectTo ?? LOGIN_PATH);
       router.refresh();
     });
   });
@@ -45,6 +47,7 @@ export function ResetPasswordForm() {
       <AuthCard
         title="Password updated"
         description="You can sign in with your new password."
+        icon={CheckCircle2}
         footer={
           <>
             Continue to <AuthLink href="/login">log in</AuthLink>
@@ -62,6 +65,7 @@ export function ResetPasswordForm() {
     <AuthCard
       title="Set a new password"
       description="Choose a strong password for your account."
+      icon={LockKeyhole}
     >
       <form className="space-y-4" onSubmit={onSubmit} noValidate>
         <div className="space-y-2">
@@ -96,8 +100,9 @@ export function ResetPasswordForm() {
           ) : null}
         </div>
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="auth-submit w-full" disabled={pending}>
           {pending ? "Updating…" : "Update password"}
+          {pending ? null : <ArrowRight className="size-4" />}
         </Button>
       </form>
     </AuthCard>

@@ -266,6 +266,18 @@ describe("dispatcher", () => {
         ),
       },
       inApp: createInAppProvider(),
+      push: {
+        name: "none",
+        isConfigured: () => false,
+        send: vi.fn(
+          async (): Promise<NotificationResult> => ({
+            ok: false,
+            provider: "none",
+            retryable: false,
+            errorCode: "NOT_CONFIGURED",
+          }),
+        ),
+      },
     };
 
     const result = await dispatchNotification({
@@ -292,6 +304,17 @@ describe("dispatcher", () => {
       whatsapp: createWhatsAppProvider(),
       sms: createSmsProvider(),
       inApp: createInAppProvider(),
+      push: {
+        name: "none",
+        isConfigured: () => false,
+        send: vi.fn(
+          async (): Promise<NotificationResult> => ({
+            ok: true,
+            provider: "web_push",
+            retryable: false,
+          }),
+        ),
+      },
     };
 
     const result = await dispatchNotification({

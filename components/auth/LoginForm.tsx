@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { signInAction } from "@/app/actions/auth";
+import { ArrowRight, LogIn } from "lucide-react";
+import { signInRequest } from "@/lib/api/auth-client";
 import { AuthCard, AuthLink } from "@/components/auth/AuthCard";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,9 @@ export function LoginForm() {
     if (searchParams.get("error") === "link_invalid") {
       toast.error("This link is invalid or has expired. Please try again.");
     }
+    if (searchParams.get("verified") === "1") {
+      toast.success("Email verified. You can sign in now.");
+    }
   }, [searchParams]);
 
   const form = useForm<LoginInput>({
@@ -35,11 +39,15 @@ export function LoginForm() {
   });
 
   const onSubmit = form.handleSubmit((values) => {
+    if (pending) return;
     startTransition(async () => {
-      const result = await signInAction(values);
+      const result = await signInRequest(values);
       if (!result.ok) {
         if (result.code === "UNVERIFIED") {
-          router.replace(VERIFY_EMAIL_PATH);
+          const target =
+            result.data?.redirectTo ??
+            `${VERIFY_EMAIL_PATH}?email=${encodeURIComponent(values.email.trim().toLowerCase())}`;
+          router.replace(target);
           router.refresh();
           return;
         }
@@ -49,13 +57,12 @@ export function LoginForm() {
 
       const next = safeRedirectPath(
         searchParams.get("next"),
-        result.redirectTo ?? DASHBOARD_OVERVIEW_PATH,
+        result.data?.redirectTo ?? DASHBOARD_OVERVIEW_PATH,
       );
-      // Prefer onboarding destination over a stale ?next= when user has no restaurant.
       const destination =
-        result.redirectTo?.includes("/onboarding") &&
+        result.data?.redirectTo?.includes("/onboarding") &&
         !next.startsWith("/onboarding")
-          ? result.redirectTo
+          ? result.data.redirectTo
           : next;
       router.replace(destination);
       router.refresh();
@@ -66,6 +73,7 @@ export function LoginForm() {
     <AuthCard
       title="Log in"
       description="Sign in to manage your restaurant queue."
+      icon={LogIn}
       footer={
         <>
           No account yet? <AuthLink href="/signup">Sign up</AuthLink>
@@ -110,8 +118,9 @@ export function LoginForm() {
           ) : null}
         </div>
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="auth-submit w-full" disabled={pending}>
           {pending ? "Signing in…" : "Log in"}
+          {pending ? null : <ArrowRight className="size-4" />}
         </Button>
       </form>
     </AuthCard>

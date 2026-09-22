@@ -18,9 +18,16 @@ export {
 } from "@/lib/auth/permissions";
 
 export {
+  canAccessHref,
+  filterNavByRole,
+  requiredPermissionForHref,
+} from "@/lib/auth/navigation";
+
+export {
   AuthorizationError,
   redirectIfAuthenticated,
   requireAuth,
+  requireOrganizationMembership,
   requirePermission,
   requireRestaurantMembership,
   requireVerifiedAuth,
@@ -31,6 +38,7 @@ export {
   ensureProfile,
   getAuthContext,
   getAuthUser,
+  getMembershipForOrganization,
   getMembershipForRestaurant,
   getUserMemberships,
   isEmailVerified,
@@ -38,6 +46,7 @@ export {
   resolvePreferredRestaurantId,
   type AuthContext,
   type MembershipWithRestaurant,
+  type Organization,
   type Profile,
   type Restaurant,
   type RestaurantMember,

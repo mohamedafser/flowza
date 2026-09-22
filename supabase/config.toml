@@ -235,17 +235,19 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# App OTP emails use OTP_EXPIRY_MINUTES (5). Keep Supabase native OTP short too.
+otp_expiry = 300
 
-# Use a production-ready SMTP server
+# Use a production-ready SMTP server for Supabase Auth system emails.
+# Prefer app-level SMTP_* for Flowza OTP emails (see .env.example).
 # [auth.email.smtp]
 # enabled = true
-# host = "smtp.sendgrid.net"
+# host = "env(SMTP_HOST)"
 # port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# user = "env(SMTP_USER)"
+# pass = "env(SMTP_PASSWORD)"
+# admin_email = "env(SMTP_SENDER_EMAIL)"
+# sender_name = "env(SMTP_SENDER_NAME)"
 
 # Uncomment to customize email template
 # [auth.email.template.invite]

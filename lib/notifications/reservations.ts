@@ -1,4 +1,5 @@
 import { buildIdempotencyKey } from "@/lib/notifications/constants";
+import { isWebPushConfigured } from "@/lib/notifications/push/config";
 import {
   scheduleNotificationWork,
   sendNotification,
@@ -150,7 +151,20 @@ async function dispatchReservationEvent(
   if (!ctx) return;
 
   const data = templateData(ctx);
-  const channels: NotificationChannel[] = ["EMAIL", "SMS", "WHATSAPP", "IN_APP"];
+  const channels: NotificationChannel[] = [
+    "EMAIL",
+    "SMS",
+    "WHATSAPP",
+    "IN_APP",
+  ];
+  if (isWebPushConfigured()) {
+    channels.push("PUSH");
+  }
+
+  const deliveries: Array<{
+    channel: NotificationChannel;
+    recipient: string;
+  }> = [];
 
   for (const channel of channels) {
     let recipient: string | null = null;
@@ -158,50 +172,80 @@ async function dispatchReservationEvent(
       recipient = ctx.customer?.email ?? null;
     } else if (channel === "SMS" || channel === "WHATSAPP") {
       recipient = ctx.customer?.phone ?? null;
-    } else if (channel === "IN_APP") {
+    } else if (channel === "IN_APP" || channel === "PUSH") {
       recipient = ctx.customer?.id ?? null;
     }
 
     if (!recipient) continue;
-
-    await sendNotification({
-      restaurantId: ctx.restaurantId,
-      customerId: ctx.customer?.id ?? null,
-      reservationId: ctx.reservation.id,
-      branchId: ctx.branchId,
-      type,
-      channel,
-      audience: "CUSTOMER",
-      idempotencyKey: reservationIdempotencyKey({
-        reservationId: ctx.reservation.id,
-        type,
-        channel,
-        eventVersion,
-      }),
-      recipient,
-      data,
-    });
+    deliveries.push({ channel, recipient });
   }
 
-  if (staffType) {
-    await sendNotification({
-      restaurantId: ctx.restaurantId,
-      customerId: ctx.customer?.id ?? null,
-      reservationId: ctx.reservation.id,
-      branchId: ctx.branchId,
-      type: staffType,
-      channel: "IN_APP",
-      audience: "STAFF",
-      idempotencyKey: reservationIdempotencyKey({
+  await Promise.all(
+    deliveries.map(({ channel, recipient }) =>
+      sendNotification({
+        restaurantId: ctx.restaurantId,
+        customerId: ctx.customer?.id ?? null,
         reservationId: ctx.reservation.id,
+        branchId: ctx.branchId,
+        type,
+        channel,
+        audience: "CUSTOMER",
+        idempotencyKey: reservationIdempotencyKey({
+          reservationId: ctx.reservation.id,
+          type,
+          channel,
+          eventVersion,
+        }),
+        recipient,
+        data,
+      }),
+    ),
+  );
+
+  if (staffType) {
+    const staffJobs = [
+      sendNotification({
+        restaurantId: ctx.restaurantId,
+        customerId: ctx.customer?.id ?? null,
+        reservationId: ctx.reservation.id,
+        branchId: ctx.branchId,
         type: staffType,
         channel: "IN_APP",
-        eventVersion,
+        audience: "STAFF",
+        idempotencyKey: reservationIdempotencyKey({
+          reservationId: ctx.reservation.id,
+          type: staffType,
+          channel: "IN_APP",
+          eventVersion,
+        }),
+        recipient: ctx.restaurantId,
+        data,
+        bypassPreferences: true,
       }),
-      recipient: ctx.restaurantId,
-      data,
-      bypassPreferences: true,
-    });
+    ];
+    if (isWebPushConfigured()) {
+      staffJobs.push(
+        sendNotification({
+          restaurantId: ctx.restaurantId,
+          customerId: ctx.customer?.id ?? null,
+          reservationId: ctx.reservation.id,
+          branchId: ctx.branchId,
+          type: staffType,
+          channel: "PUSH",
+          audience: "STAFF",
+          idempotencyKey: reservationIdempotencyKey({
+            reservationId: ctx.reservation.id,
+            type: staffType,
+            channel: "PUSH",
+            eventVersion,
+          }),
+          recipient: `restaurant:${ctx.restaurantId}`,
+          data,
+          bypassPreferences: true,
+        }),
+      );
+    }
+    await Promise.all(staffJobs);
   }
 }
 

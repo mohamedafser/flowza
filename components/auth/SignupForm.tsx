@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { signUpAction } from "@/app/actions/auth";
+import { ArrowRight, UserPlus } from "lucide-react";
+import { signUpRequest } from "@/lib/api/auth-client";
 import { AuthCard, AuthLink } from "@/components/auth/AuthCard";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { Button } from "@/components/ui/button";
@@ -17,73 +17,58 @@ import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 
 export function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
-  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
+  const prefillEmail = searchParams.get("email")?.trim() ?? "";
+  const invitationId = searchParams.get("invite")?.trim() || undefined;
 
   const form = useForm<SignupInput>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
       fullName: "",
-      email: "",
+      email: prefillEmail,
       password: "",
       confirmPassword: "",
+      invitationId,
     },
   });
 
   const onSubmit = form.handleSubmit((values) => {
+    if (pending) return;
     startTransition(async () => {
-      const result = await signUpAction(values);
+      const result = await signUpRequest(values);
       if (!result.ok) {
+        if (result.data?.redirectTo?.includes("/verify-email")) {
+          toast.success(
+            result.message ?? "Enter the verification code we emailed you.",
+          );
+          router.replace(result.data.redirectTo);
+          router.refresh();
+          return;
+        }
         toast.error(result.message ?? "Unable to create account.");
+        if (result.data?.redirectTo?.includes("/login")) {
+          router.replace(result.data.redirectTo);
+        }
         return;
       }
-      setSubmittedEmail(values.email);
-      toast.success("Check your email to verify your account.");
+      toast.success(
+        result.message ?? "Account created. Enter the code we emailed you.",
+      );
+      router.replace(result.data?.redirectTo ?? VERIFY_EMAIL_PATH);
       router.refresh();
-      if (result.hasSession) {
-        router.replace(VERIFY_EMAIL_PATH);
-      }
     });
   });
-
-  if (submittedEmail) {
-    return (
-      <AuthCard
-        title="Verify your email"
-        description="We sent a verification link to your inbox."
-        footer={
-          <>
-            Already verified? <AuthLink href="/login">Log in</AuthLink>
-          </>
-        }
-      >
-        <div className="space-y-3 text-sm">
-          <p>
-            Email:{" "}
-            <span className="text-foreground font-medium">
-              {submittedEmail}
-            </span>
-          </p>
-          <p className="text-muted-foreground">
-            Open the link in the email to activate your account. You can close
-            this tab after verifying.
-          </p>
-          <Button
-            className="w-full"
-            render={<Link href="/login" />}
-            nativeButton={false}
-          >
-            Back to log in
-          </Button>
-        </div>
-      </AuthCard>
-    );
-  }
 
   return (
     <AuthCard
       title="Create your account"
-      description="Start with your personal account. Restaurant setup comes next."
+      description={
+        invitationId
+          ? "Accept your invitation by creating an account with the invited email."
+          : "Start with your personal account. Restaurant setup comes next."
+      }
+      icon={UserPlus}
       footer={
         <>
           Already have an account? <AuthLink href="/login">Log in</AuthLink>
@@ -116,12 +101,17 @@ export function SignupForm() {
             autoComplete="email"
             placeholder="you@restaurant.com"
             aria-invalid={Boolean(form.formState.errors.email)}
-            disabled={pending}
+            disabled={pending || Boolean(prefillEmail && invitationId)}
             {...form.register("email")}
           />
           {form.formState.errors.email ? (
             <p className="text-destructive text-xs">
               {form.formState.errors.email.message}
+            </p>
+          ) : null}
+          {invitationId ? (
+            <p className="text-muted-foreground text-xs">
+              Use the invited email address so your membership can be activated.
             </p>
           ) : null}
         </div>
@@ -161,8 +151,9 @@ export function SignupForm() {
           ) : null}
         </div>
 
-        <Button type="submit" className="w-full" disabled={pending}>
+        <Button type="submit" className="auth-submit w-full" disabled={pending}>
           {pending ? "Creating account…" : "Sign up"}
+          {pending ? null : <ArrowRight className="size-4" />}
         </Button>
       </form>
     </AuthCard>

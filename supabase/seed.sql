@@ -1,8 +1,23 @@
 -- Development seed only — applied by `supabase db reset` / local start.
 -- Never run against production. No real customer PII.
 
+INSERT INTO public.organizations (
+  id,
+  name,
+  business_type,
+  status
+)
+VALUES (
+  '11111111-1111-1111-1111-111111111111',
+  'Demo Restaurant',
+  'RESTAURANT',
+  'ACTIVE'
+)
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO public.restaurants (
   id,
+  organization_id,
   name,
   slug,
   email,
@@ -12,6 +27,7 @@ INSERT INTO public.restaurants (
   status
 )
 VALUES (
+  '11111111-1111-1111-1111-111111111111',
   '11111111-1111-1111-1111-111111111111',
   'Demo Restaurant',
   'demo-restaurant',
@@ -26,6 +42,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.branches (
   id,
   restaurant_id,
+  organization_id,
   name,
   slug,
   address_line_1,
@@ -36,6 +53,7 @@ INSERT INTO public.branches (
 )
 VALUES (
   '22222222-2222-2222-2222-222222222222',
+  '11111111-1111-1111-1111-111111111111',
   '11111111-1111-1111-1111-111111111111',
   'Demo Branch',
   'demo-branch',

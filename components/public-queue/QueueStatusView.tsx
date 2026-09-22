@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { QueueTokenCard } from "@/components/public-queue/QueueTokenCard";
 import { CancelQueueDialog } from "@/components/public-queue/CancelQueueDialog";
+import { CustomerPushEnableButton } from "@/components/notifications/CustomerPushEnableButton";
 import { RealtimeStatusIndicator } from "@/components/common/RealtimeStatusIndicator";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import {
@@ -157,6 +158,10 @@ export function QueueStatusView({
       </div>
 
       <QueueTokenCard token={status.entry.token} />
+
+      {liveEnabled ? (
+        <CustomerPushEnableButton accessToken={accessToken} />
+      ) : null}
 
       {liveEnabled ? (
         <RealtimeStatusIndicator status={realtimeStatus} audience="customer" />

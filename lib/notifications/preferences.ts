@@ -18,7 +18,7 @@ export const DEFAULT_CUSTOMER_PREFERENCES: CustomerNotificationPreferences = {
 
 export const DEFAULT_RESTAURANT_NOTIFICATION_SETTINGS: RestaurantNotificationSettings =
   {
-    notificationsEmailEnabled: false,
+    notificationsEmailEnabled: true,
     notificationsWhatsappEnabled: false,
     notificationsSmsEnabled: false,
     notificationsInAppEnabled: true,
@@ -43,6 +43,7 @@ export function channelEnabledForCustomer(
     case "SMS":
       return prefs.smsEnabled;
     case "IN_APP":
+    case "PUSH":
       return prefs.inAppEnabled;
     default: {
       const _exhaustive: never = channel;
@@ -73,6 +74,7 @@ export function channelEnabledForRestaurant(
     case "SMS":
       return settings.notificationsSmsEnabled;
     case "IN_APP":
+    case "PUSH":
       return settings.notificationsInAppEnabled;
     default: {
       const _exhaustive: never = channel;

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, UserPlus } from "lucide-react";
-import { searchQueueCustomersAction } from "@/app/actions/queue";
+import { searchQueueCustomersRequest } from "@/lib/api/queues-client";
 import {
   Dialog,
   DialogContent,
@@ -136,7 +136,7 @@ function WalkInForm({
     const trimmed = query.trim();
     const timer = window.setTimeout(() => {
       setSearching(true);
-      void searchQueueCustomersAction({ query: trimmed }).then((result) => {
+      void searchQueueCustomersRequest(trimmed).then((result) => {
         if (cancelled) return;
         setSearching(false);
         setHasSearched(true);
@@ -162,7 +162,7 @@ function WalkInForm({
 
     let cancelled = false;
     const timer = window.setTimeout(() => {
-      void searchQueueCustomersAction({ query: normalized }).then((result) => {
+      void searchQueueCustomersRequest(normalized).then((result) => {
         if (cancelled) return;
         const customers = result.ok ? (result.data?.customers ?? []) : [];
         const match =

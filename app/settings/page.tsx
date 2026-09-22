@@ -15,6 +15,7 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { requireWorkspacePage } from "@/lib/context/workspace";
+import { canAccessHref } from "@/lib/auth/navigation";
 import {
   SETTINGS_BRANCHES_PATH,
   SETTINGS_CUSTOMER_PATH,
@@ -30,9 +31,50 @@ export const metadata: Metadata = {
   title: "Settings",
 };
 
+const RESTAURANT_LINKS = [
+  {
+    href: SETTINGS_GENERAL_PATH,
+    label: "General",
+    icon: Settings2,
+  },
+  {
+    href: SETTINGS_BRANCHES_PATH,
+    label: "Branches",
+    icon: Building2,
+  },
+  {
+    href: SETTINGS_HOURS_PATH,
+    label: "Operating hours",
+    icon: Clock3,
+  },
+  {
+    href: SETTINGS_TABLES_PATH,
+    label: "Table sections",
+    icon: LayoutGrid,
+  },
+  {
+    href: SETTINGS_QUEUE_PATH,
+    label: "Queue",
+    icon: ListOrdered,
+  },
+  {
+    href: SETTINGS_CUSTOMER_PATH,
+    label: "Customer experience",
+    icon: Users,
+  },
+  {
+    href: SETTINGS_NOTIFICATIONS_PATH,
+    label: "Notifications",
+    icon: Bell,
+  },
+] as const;
+
 export default async function SettingsPage() {
   const workspace = await requireWorkspacePage();
   const { auth, restaurant, role, canManageRestaurant } = workspace;
+  const restaurantLinks = RESTAURANT_LINKS.filter((link) =>
+    canAccessHref(role, link.href),
+  );
 
   return (
     <div>
@@ -43,82 +85,42 @@ export default async function SettingsPage() {
       />
 
       <div className="space-y-10">
-        <section className="max-w-lg space-y-3">
-          <div>
-            <h2 className="text-sm font-medium">Restaurant</h2>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Configure restaurant details and locations for{" "}
-              <span className="text-foreground font-medium">
-                {restaurant?.name}
-              </span>
-              .
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_GENERAL_PATH} />}
-              nativeButton={false}
-            >
-              <Settings2 />
-              General
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_BRANCHES_PATH} />}
-              nativeButton={false}
-            >
-              <Building2 />
-              Branches
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_HOURS_PATH} />}
-              nativeButton={false}
-            >
-              <Clock3 />
-              Operating hours
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_TABLES_PATH} />}
-              nativeButton={false}
-            >
-              <LayoutGrid />
-              Table sections
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_QUEUE_PATH} />}
-              nativeButton={false}
-            >
-              <ListOrdered />
-              Queue
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_CUSTOMER_PATH} />}
-              nativeButton={false}
-            >
-              <Users />
-              Customer experience
-            </Button>
-            <Button
-              variant="outline"
-              render={<Link href={SETTINGS_NOTIFICATIONS_PATH} />}
-              nativeButton={false}
-            >
-              <Bell />
-              Notifications
-            </Button>
-          </div>
-          {canManageRestaurant ? null : (
-            <p className="text-muted-foreground text-xs">
-              Your role ({role}) can view settings. Configuration changes
-              require restaurant.manage.
-            </p>
-          )}
-        </section>
+        {restaurantLinks.length > 0 ? (
+          <section className="max-w-lg space-y-3">
+            <div>
+              <h2 className="text-sm font-medium">Restaurant</h2>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Configure restaurant details and locations for{" "}
+                <span className="text-foreground font-medium">
+                  {restaurant?.name}
+                </span>
+                .
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {restaurantLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Button
+                    key={link.href}
+                    variant="outline"
+                    render={<Link href={link.href} />}
+                    nativeButton={false}
+                  >
+                    <Icon />
+                    {link.label}
+                  </Button>
+                );
+              })}
+            </div>
+            {canManageRestaurant ? null : (
+              <p className="text-muted-foreground text-xs">
+                Your role ({role}) can view settings. Configuration changes
+                require an owner or admin.
+              </p>
+            )}
+          </section>
+        ) : null}
 
         <section className="max-w-md space-y-3">
           <div>

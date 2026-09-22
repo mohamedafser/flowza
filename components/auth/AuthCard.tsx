@@ -1,17 +1,14 @@
 import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type AuthCardProps = {
   title: string;
   description?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  icon?: LucideIcon;
+  className?: string;
 };
 
 export function AuthCard({
@@ -19,20 +16,39 @@ export function AuthCard({
   description,
   children,
   footer,
+  icon: Icon,
+  className,
 }: AuthCardProps) {
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        {description ? <CardDescription>{description}</CardDescription> : null}
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {children}
+    <div className={cn("auth-card w-full", className)}>
+      <div className="auth-card-inner space-y-5 p-6 sm:p-7">
+        <div className="space-y-3">
+          {Icon ? (
+            <span className="auth-card-icon" aria-hidden>
+              <Icon className="auth-icon-bob size-5" />
+            </span>
+          ) : null}
+          <div className="space-y-1.5">
+            <h1 className="font-(family-name:--font-landing-display) text-2xl font-bold tracking-tight text-balance">
+              {title}
+            </h1>
+            {description ? (
+              <p className="text-muted-foreground text-sm leading-relaxed text-pretty">
+                {description}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="space-y-4">{children}</div>
+
         {footer ? (
-          <p className="text-muted-foreground text-center text-sm">{footer}</p>
+          <p className="text-muted-foreground border-border/60 border-t pt-4 text-center text-sm">
+            {footer}
+          </p>
         ) : null}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -44,10 +60,7 @@ export function AuthLink({
   children: React.ReactNode;
 }) {
   return (
-    <Link
-      href={href}
-      className="text-foreground font-medium underline-offset-4 hover:underline"
-    >
+    <Link href={href} className="auth-link">
       {children}
     </Link>
   );

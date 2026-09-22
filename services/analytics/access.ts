@@ -1,8 +1,10 @@
 import {
   AuthorizationError,
   requirePermission,
+  requireRestaurantMembership,
   requireVerifiedAuth,
 } from "@/lib/auth/guards";
+import { hasPermission } from "@/lib/auth/permissions";
 import { getDashboardDateRange } from "@/lib/analytics/date-range";
 import { resolveBranchTimezone } from "@/lib/utils/timezone";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +21,17 @@ export type AuthorizedAnalyticsBranch = {
 export async function loadAuthorizedAnalyticsBranch(
   branchId: string,
   permission: Permission,
+): Promise<AuthorizedAnalyticsBranch> {
+  return loadAuthorizedAnalyticsBranchAny(branchId, [permission]);
+}
+
+/**
+ * Authorize once for any of the given permissions (dashboard entry).
+ * Avoids retrying membership/permission DB work for each candidate permission.
+ */
+export async function loadAuthorizedAnalyticsBranchAny(
+  branchId: string,
+  permissions: Permission[],
 ): Promise<AuthorizedAnalyticsBranch> {
   const auth = await requireVerifiedAuth();
   const supabase = await createClient();
@@ -39,7 +52,18 @@ export async function loadAuthorizedAnalyticsBranch(
     );
   }
 
-  const context = await requirePermission(data.restaurant_id, permission);
+  const context = await requireRestaurantMembership(data.restaurant_id);
+  const allowed = permissions.some((permission) =>
+    hasPermission(context.role, permission),
+  );
+
+  if (!allowed) {
+    throw new AuthorizationError(
+      "FORBIDDEN",
+      "You do not have access to dashboard analytics.",
+    );
+  }
+
   const restaurantTimezone =
     context.membership.restaurant.timezone ||
     context.restaurant?.timezone ||

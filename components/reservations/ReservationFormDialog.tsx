@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
-import { searchQueueCustomersAction } from "@/app/actions/queue";
+import { searchQueueCustomersRequest } from "@/lib/api/queues-client";
 import {
   Dialog,
   DialogContent,
@@ -138,7 +138,7 @@ function ReservationForm({
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setSearching(true);
-      void searchQueueCustomersAction({ query: trimmed }).then((result) => {
+      void searchQueueCustomersRequest(trimmed).then((result) => {
         if (cancelled) return;
         setSearching(false);
         setResults(result.ok ? (result.data?.customers ?? []) : []);

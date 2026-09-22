@@ -31,6 +31,7 @@ describe("auth route helpers", () => {
     expect(isAuthPagePath("/forgot-password")).toBe(true);
     expect(isAuthPagePath("/reset-password")).toBe(true);
     expect(isAuthPagePath("/verify-email")).toBe(true);
+    expect(isAuthPagePath("/verify-reset-otp")).toBe(true);
     expect(isAuthPagePath("/dashboard")).toBe(false);
   });
 

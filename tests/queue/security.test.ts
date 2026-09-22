@@ -28,6 +28,20 @@ describe("queue security helpers", () => {
     expect(result).toEqual({ ok: false, reason: "restaurant" });
   });
 
+  it("never authorizes another organization's queue", () => {
+    const result = authorizeQueueScope({
+      membershipRestaurantId: "rest-a",
+      queueRestaurantId: "rest-a",
+      currentRestaurantId: "rest-a",
+      queueBranchId: "branch-a",
+      expectedBranchId: "branch-a",
+      membershipOrganizationId: "org-a",
+      queueOrganizationId: "org-b",
+      currentOrganizationId: "org-a",
+    });
+    expect(result).toEqual({ ok: false, reason: "organization" });
+  });
+
   it("rejects a queue entry from another queue", () => {
     const result = authorizeQueueScope({
       membershipRestaurantId: "rest-a",

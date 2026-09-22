@@ -8,6 +8,7 @@ import {
   VERIFY_EMAIL_PATH,
 } from "@/lib/auth/paths";
 import type { MemberRole } from "@/lib/auth/roles";
+import { organizationIdFromRestaurant } from "@/lib/tenancy/organization";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
@@ -15,6 +16,7 @@ import type { Tables } from "@/types/database";
 export type Profile = Tables<"profiles">;
 export type Restaurant = Tables<"restaurants">;
 export type RestaurantMember = Tables<"restaurant_members">;
+export type Organization = Tables<"organizations">;
 
 export type MembershipWithRestaurant = RestaurantMember & {
   restaurant: Restaurant;
@@ -26,6 +28,9 @@ export type AuthContext = {
   memberships: MembershipWithRestaurant[];
   membership: MembershipWithRestaurant | null;
   restaurant: Restaurant | null;
+  /** Tenant id resolved from the authenticated membership — never from the client. */
+  organizationId: string | null;
+  organization: Organization | null;
   role: MemberRole | null;
 };
 
@@ -90,32 +95,32 @@ export async function ensureProfile(
   return { profile: created, error: null };
 }
 
-export async function getUserMemberships(
-  userId: string,
-): Promise<MembershipWithRestaurant[]> {
-  const supabase = await createClient();
+export const getUserMemberships = cache(
+  async (userId: string): Promise<MembershipWithRestaurant[]> => {
+    const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("restaurant_members")
-    .select("*, restaurant:restaurants(*)")
-    .eq("user_id", userId)
-    .eq("status", "ACTIVE")
-    .order("created_at", { ascending: true });
+    const { data, error } = await supabase
+      .from("restaurant_members")
+      .select("*, restaurant:restaurants(*)")
+      .eq("user_id", userId)
+      .eq("status", "ACTIVE")
+      .order("created_at", { ascending: true });
 
-  if (error || !data) {
-    return [];
-  }
+    if (error || !data) {
+      return [];
+    }
 
-  return data
-    .filter(
-      (row): row is RestaurantMember & { restaurant: Restaurant } =>
-        row.restaurant !== null && typeof row.restaurant === "object",
-    )
-    .map((row) => ({
-      ...row,
-      restaurant: row.restaurant,
-    }));
-}
+    return data
+      .filter(
+        (row): row is RestaurantMember & { restaurant: Restaurant } =>
+          row.restaurant !== null && typeof row.restaurant === "object",
+      )
+      .map((row) => ({
+        ...row,
+        restaurant: row.restaurant,
+      }));
+  },
+);
 
 export async function resolvePreferredRestaurantId(
   memberships: MembershipWithRestaurant[],
@@ -137,24 +142,53 @@ export async function resolvePreferredRestaurantId(
   return memberships[0]?.restaurant_id ?? null;
 }
 
+async function loadOrganization(
+  organizationId: string | null,
+): Promise<Organization | null> {
+  if (!organizationId) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("organizations")
+    .select("*")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+}
+
 export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
   const user = await getAuthUser();
   if (!user) {
     return null;
   }
 
-  const { profile } = await ensureProfile(user);
-  const memberships = await getUserMemberships(user.id);
+  const [profileResult, memberships] = await Promise.all([
+    ensureProfile(user),
+    getUserMemberships(user.id),
+  ]);
+  const { profile } = profileResult;
   const restaurantId = await resolvePreferredRestaurantId(memberships);
   const membership =
     memberships.find((item) => item.restaurant_id === restaurantId) ?? null;
+  const restaurant = membership?.restaurant ?? null;
+  const organizationId = organizationIdFromRestaurant(restaurant);
+  const organization = await loadOrganization(organizationId);
 
   return {
     user,
     profile,
     memberships,
     membership,
-    restaurant: membership?.restaurant ?? null,
+    restaurant,
+    organizationId,
+    organization,
     role: membership?.role ?? null,
   };
 });
@@ -167,6 +201,20 @@ export async function getMembershipForRestaurant(
   return (
     memberships.find(
       (membership) => membership.restaurant_id === restaurantId,
+    ) ?? null
+  );
+}
+
+export async function getMembershipForOrganization(
+  userId: string,
+  organizationId: string,
+): Promise<MembershipWithRestaurant | null> {
+  const memberships = await getUserMemberships(userId);
+  return (
+    memberships.find(
+      (membership) =>
+        organizationIdFromRestaurant(membership.restaurant) ===
+          organizationId || membership.organization_id === organizationId,
     ) ?? null
   );
 }

@@ -2,7 +2,7 @@
 
 Restaurant queue management SaaS — **Simplify the flow of your business.**
 
-Phase 1 established the app/PWA foundation. Phase 2 adds the multi-tenant Supabase PostgreSQL schema, migrations, RLS foundation, seed data, and typed clients. Phase 3 adds Supabase Authentication, email verification, password reset, protected routes, and RBAC permission utilities. Phase 4 adds restaurant onboarding, restaurant/branch settings, logo storage, and restaurant/branch context switching. Phase 5 adds restaurant general settings, queue/customer configuration, operating hours, special dates, and reusable date utilities. Phase 6 adds table and seating management (create/edit/delete tables, sections, status, visual layout). Phase 7 adds restaurant-level customer records (search, filters, create/edit, duplicate detection, statistics). Phase 8 adds the staff queue engine (tokens, call next, seating, completion, ETA). Phase 9 adds the anonymous customer-facing queue (join, token, status, cancel). Phase 10 adds Supabase Realtime for staff queue, customer status, and table screens. Phase 11 adds TV / lobby public displays. Phase 12 adds printable QR codes that open the Phase 9 join experience. Phase 13 adds notification infrastructure (in-app, email, WhatsApp, SMS abstractions, preferences, templates, deduplication). Reservations, analytics, and billing remain deferred.
+Phase 1 established the app/PWA foundation. Phase 2 adds the multi-tenant Supabase PostgreSQL schema, migrations, RLS foundation, seed data, and typed clients. Organization tenancy (`organizations` + `organization_id`) is the primary tenant boundary; restaurants remain organization-owned business profiles. Phase 3 adds Supabase Authentication, email verification, password reset, protected routes, and RBAC permission utilities. Phase 4 adds restaurant onboarding, restaurant/branch settings, logo storage, and restaurant/branch context switching. Phase 5 adds restaurant general settings, queue/customer configuration, operating hours, special dates, and reusable date utilities. Phase 6 adds table and seating management (create/edit/delete tables, sections, status, visual layout). Phase 7 adds restaurant-level customer records (search, filters, create/edit, duplicate detection, statistics). Phase 8 adds the staff queue engine (tokens, call next, seating, completion, ETA). Phase 9 adds the anonymous customer-facing queue (join, token, status, cancel). Phase 10 adds Supabase Realtime for staff queue, customer status, and table screens. Phase 11 adds TV / lobby public displays. Phase 12 adds printable QR codes that open the Phase 9 join experience. Phase 13 adds notification infrastructure (in-app, email, WhatsApp, SMS abstractions, preferences, templates, deduplication). Reservations, analytics, and billing remain deferred.
 
 ## Tech stack
 
@@ -137,17 +137,158 @@ Live queue positions and table availability must always prefer fresh server data
 
 ## Authentication (Phase 3)
 
-- Email/password signup, login, logout
-- Email verification, forgot/reset password
+- Email/password signup, login, logout via Supabase Auth
+- **6-digit OTP** email verification (5-minute expiry, hashed server-side, single-use)
+- Forgot password: `/forgot-password` → `/verify-reset-otp` → `/reset-password`
+- Invitation emails for pending staff invites (SMTP), then signup OTP on the invited address
 - Session cookies + `proxy.ts` route protection
 - RBAC utilities: `lib/auth/` (roles, permissions, session, guards)
-- Callback: `/auth/callback`
+- Callback: `/auth/callback` (legacy link exchange kept for older emails)
+- Auth context resolves `{ userId, organizationId, role }` from the session membership — never from client-supplied tenant IDs
+
+OTP delivery uses server-side `SMTP_*` (preferred) or falls back to `RESEND_*`. OTPs are stored hashed in `auth_otps` (service-role only). Password reset requires a short-lived httpOnly authorization cookie after OTP verification — never email+OTP alone.
+
+Auth mutations use plain JSON route handlers (not RSC server-action flight payloads):
+
+| Method + path                    | Purpose                            |
+| -------------------------------- | ---------------------------------- |
+| `POST /api/auth/signup`          | Create account + send OTP          |
+| `POST /api/auth/login`           | Sign in (403 + data if unverified) |
+| `POST /api/auth/forgot-password` | Send password-reset OTP            |
+| `POST /api/auth/verify-otp`      | Verify signup or reset OTP         |
+| `POST /api/auth/resend-otp`      | Resend OTP                         |
+| `POST /api/auth/reset-password`  | Set password after OTP authz       |
+| `POST /api/auth/logout`          | Clear session                      |
+
+Responses are `{ ok, data }` / `{ ok, code, message, data? }` with `Cache-Control: no-store`. An unverified login returns **403** with `data.redirectTo` pointing at `/verify-email?email=…` so the UI can navigate even when Supabase refuses a session.
+
+Required server env: `SUPABASE_SERVICE_ROLE_KEY`, `SMTP_*` (or Resend), optional `OTP_EXPIRY_MINUTES` / `OTP_RESEND_COOLDOWN_SECONDS` / `OTP_MAX_ATTEMPTS`.
 
 Protected: `/dashboard/*`, `/settings/*`, `/onboarding/*`  
-Public auth: `/login`, `/signup`, `/forgot-password`, `/reset-password`, `/verify-email`
+Public auth: `/login`, `/signup`, `/forgot-password`, `/verify-reset-otp`, `/reset-password`, `/verify-email`
 
 Unverified users are redirected to `/verify-email`.
 Verified users without a restaurant membership are redirected to `/onboarding/restaurant`.
+
+Apply migration `20260921180000_auth_otps.sql` with `npm run db:reset` or `npx supabase db push`.
+
+## Multi-tenant architecture
+
+Flowza uses **logical tenant isolation** in a shared PostgreSQL database (no per-client databases).
+
+```text
+                FLOWZA
+                   |
+            PostgreSQL DB
+                   |
+    +--------------+--------------+
+    |              |              |
+  Org A          Org B          Org C
+    |              |              |
+ Users          Users          Users
+ Customers      Customers      Customers
+ Queues         Queues         Queues
+ Branches       Branches       Branches
+```
+
+### Organization model
+
+- Primary tenant boundary: `organizations` (`organization_id`)
+- Extensible `business_type`: `RESTAURANT` | `SALON` | `CLINIC` | `CAR_SERVICE` | `OTHER`
+- Each restaurant is an organization-owned business profile (`restaurants.organization_id`, unique — 1:1 initially)
+- Membership remains on `restaurant_members` (also stores `organization_id`); roles: `OWNER` | `ADMIN` | `MANAGER` | `STAFF`
+- Tenant isolation answers “which org’s data?”; roles answer “what can this user do inside that org?”
+- Platform/super-admin is **not** granted via organization roles
+
+### Tenant isolation rules
+
+1. Backend resolves `organizationId` from the authenticated membership / restaurant — never from query/body as source of truth
+2. Tenant-owned queries filter by `organization_id` (and existing `restaurant_id` / branch checks)
+3. Cross-tenant resource IDs return not-found / forbidden (no leakage)
+4. Customer phone uniqueness is **per organization**, not global
+5. RLS helpers: `is_organization_member`, `has_organization_role` (plus existing restaurant helpers)
+6. Subscriptions/payments belong to the organization (paying tenant), not individual users
+
+### Migration strategy
+
+Migration `20260921120000_organization_tenancy.sql`:
+
+1. Creates `organizations`, `plans`, `payments`
+2. Backfills one organization per existing restaurant (**same UUID** for legacy rows so `organization_id === restaurant_id` for pre-migration data)
+3. Adds `organization_id` to tenant-owned tables with sync triggers from restaurant/branch/queue parents
+4. Updates `create_restaurant_with_owner` to create organization → restaurant → OWNER membership
+5. Safe to re-run backfills with `ON CONFLICT` / nullable→NOT NULL after fill
+
+Apply locally with Docker + `npm run db:reset` (or `npx supabase db push` when linked).
+
+### Creating a new organization
+
+Onboarding (`/onboarding/restaurant` → `create_restaurant_with_owner`) creates:
+
+1. `organizations` row (`business_type` defaults to `RESTAURANT`)
+2. `restaurants` row linked via `organization_id`
+3. `restaurant_members` OWNER row for the authenticated user
+
+### Staff & roles
+
+UI: `/settings/members` (visible with `members.view` — OWNER, ADMIN, MANAGER; editable with `members.manage` — OWNER, ADMIN).
+
+All staff mutations go through plain JSON route handlers, not server actions, so responses are
+inspectable `{ ok, data }` / `{ ok, code, message }` with real HTTP status codes:
+
+| Method + path                          | Purpose                                 |
+| -------------------------------------- | --------------------------------------- |
+| `GET /api/members`                     | Staff + pending invitations for the org |
+| `POST /api/members`                    | Add or invite (`data.outcome`), 201     |
+| `PATCH /api/members/[memberId]`        | Change role                             |
+| `DELETE /api/members/[memberId]`       | Remove from the organization            |
+| `DELETE /api/members/invitations/[id]` | Revoke a pending invitation             |
+
+Status codes come from `statusForActionCode`: 400 validation, 403 forbidden, 404 not found,
+409 conflict. The browser side lives in `lib/api/members-client.ts`.
+
+Migration `20260921140000_organization_members.sql` adds the organization-scoped RPCs
+(`list_organization_members`, `add_organization_member`, `update_organization_member_role`,
+`remove_organization_member`). They are `SECURITY DEFINER` because the member list needs the
+account email from `auth.users`, which RLS-only reads cannot reach. Every RPC re-derives the
+organization from the membership row and re-checks the caller's role, so a member id from
+another tenant is rejected.
+
+Rules enforced in the database (mirrored in `lib/utils/members.ts` for the UI):
+
+- Only an OWNER may grant, change, or remove OWNER access
+- An organization always keeps at least one active OWNER
+- Nobody can change or remove their own membership
+
+### Invitations
+
+`restaurant_members.user_id` requires a real `auth.users` row, so someone who has not signed
+up yet cannot be a member. Migration `20260921160000_organization_invitations.sql` adds
+`organization_invitations` for that case, and `invite_organization_member` picks the path:
+
+- Email matches an existing account → membership created immediately (`outcome: ADDED`)
+- No account yet → PENDING invitation parked for 14 days (`outcome: INVITED`)
+
+An `AFTER INSERT ON auth.users` trigger (`accept_pending_invitations`) converts every live
+invitation for that email into an ACTIVE membership at signup, so the invitee lands on the
+dashboard instead of onboarding. Owners and admins can revoke a pending invitation; there is
+one live invitation per email per organization, and re-inviting updates the role in place.
+
+There is no invitation email — the app has no configured sender. The invite is claimed by
+signing up with the same address.
+
+Role changes are written to `audit_logs` as `member.added`, `member.invited`,
+`member.invite_revoked`, `member.role_updated`, and `member.removed`, each tagged with
+`organization_id` and the acting `user_id`.
+
+### Subscription ownership
+
+- `plans` — global catalog
+- `subscriptions.organization_id` — paying tenant
+- `payments.organization_id` — payment history for that tenant
+- Billing UI providers remain deferred; schema is organization-based
+
+See also: tenant isolation unit tests in `tests/tenancy/organization-isolation.test.ts`.
 
 ## Restaurant & branches (Phase 4)
 
@@ -409,12 +550,12 @@ Queue event → sendNotification / notifyQueue*
 
 ### Channels & providers
 
-| Channel  | Provider abstraction | Enabled when |
-| -------- | --------------------- | ------------ |
-| IN_APP   | Record + staff bell   | Restaurant setting on (default) |
-| EMAIL    | Resend HTTP API       | `RESEND_API_KEY` + `RESEND_FROM_EMAIL` + setting |
+| Channel  | Provider abstraction  | Enabled when                                                   |
+| -------- | --------------------- | -------------------------------------------------------------- |
+| IN_APP   | Record + staff bell   | Restaurant setting on (default)                                |
+| EMAIL    | Resend HTTP API       | `RESEND_API_KEY` + `RESEND_FROM_EMAIL` + setting               |
 | WHATSAPP | Meta Cloud API        | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` + setting |
-| SMS      | Generic HTTP endpoint | `SMS_PROVIDER_API_KEY` + `SMS_PROVIDER_ENDPOINT` + setting |
+| SMS      | Generic HTTP endpoint | `SMS_PROVIDER_API_KEY` + `SMS_PROVIDER_ENDPOINT` + setting     |
 
 Never put provider secrets in `NEXT_PUBLIC_*`. Use `SUPABASE_SERVICE_ROLE_KEY` on the server so public join/cancel can enqueue notifications under RLS.
 

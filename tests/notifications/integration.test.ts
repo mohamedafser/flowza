@@ -23,6 +23,7 @@ function makeRow(overrides: Partial<NotificationRow> = {}): NotificationRow {
   return {
     id: NID,
     restaurant_id: RID,
+    organization_id: RID,
     customer_id: CID,
     queue_entry_id: EID,
     reservation_id: null,
@@ -184,6 +185,17 @@ const inAppOk: InAppProvider = {
   })),
 };
 
+const pushNoop = {
+  name: "none" as const,
+  isConfigured: () => false,
+  send: vi.fn(async (): Promise<NotificationResult> => ({
+    ok: true,
+    provider: "web_push",
+    retryable: false,
+    providerMessageId: "no_subscribers",
+  })),
+};
+
 describe("sendNotification service", () => {
   it("creates and dispatches a notification", async () => {
     const client = createMockClient({ enqueue: makeRow() });
@@ -194,6 +206,7 @@ describe("sendNotification service", () => {
         whatsapp: whatsappNoop,
         sms: smsNoop,
         inApp: inAppOk,
+        push: pushNoop,
       },
     });
 
@@ -251,6 +264,7 @@ describe("sendNotification service", () => {
       whatsapp: whatsappNoop,
       sms: smsNoop,
       inApp: inAppOk,
+      push: pushNoop,
     };
 
     const outcome = await sendNotification(

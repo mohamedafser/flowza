@@ -14,6 +14,11 @@ export const emailSchema = z
   .email("Enter a valid email address")
   .max(255, "Email is too long");
 
+export const otpCodeSchema = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, "Enter the 6-digit verification code");
+
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Password is required"),
@@ -31,6 +36,7 @@ export const signupSchema = z
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string().min(1, "Confirm your password"),
+    invitationId: z.string().uuid().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -44,6 +50,21 @@ export const forgotPasswordSchema = z.object({
 });
 
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const verifyOtpSchema = z.object({
+  email: emailSchema,
+  code: otpCodeSchema,
+  purpose: z.enum(["SIGNUP", "PASSWORD_RESET", "INVITATION"]).default("SIGNUP"),
+});
+
+export type VerifyOtpInput = z.infer<typeof verifyOtpSchema>;
+
+export const resendOtpSchema = z.object({
+  email: emailSchema.optional(),
+  purpose: z.enum(["SIGNUP", "PASSWORD_RESET", "INVITATION"]).default("SIGNUP"),
+});
+
+export type ResendOtpInput = z.infer<typeof resendOtpSchema>;
 
 export const resetPasswordSchema = z
   .object({

@@ -31,6 +31,7 @@ export const CHANNEL_PROVIDER_LABEL: Record<NotificationChannel, string> = {
   WHATSAPP: "whatsapp_cloud",
   SMS: "sms",
   IN_APP: "in_app",
+  PUSH: "web_push",
 };
 
 export const CUSTOMER_TYPE_PREFERENCE_KEY = {

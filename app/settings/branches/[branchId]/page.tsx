@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AccessDenied } from "@/components/common/AccessDenied";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { BranchForm } from "@/components/restaurant/BranchForm";
 import { BranchStatusControls } from "@/components/restaurant/BranchStatusControls";
 import { Button } from "@/components/ui/button";
 import { requireWorkspacePage } from "@/lib/context/workspace";
+import { canAccessHref } from "@/lib/auth/navigation";
 import { SETTINGS_BRANCHES_PATH } from "@/lib/auth/paths";
 import { settingsBranchDetailBreadcrumbs } from "@/lib/navigation/breadcrumbs";
 import { getBranch } from "@/services/branches";
@@ -30,6 +32,16 @@ export async function generateMetadata({
 export default async function BranchDetailPage({ params }: PageProps) {
   const { branchId } = await params;
   const workspace = await requireWorkspacePage();
+
+  if (!canAccessHref(workspace.role, SETTINGS_BRANCHES_PATH)) {
+    return (
+      <AccessDenied
+        title="Branch"
+        description="Branch details and configuration."
+        message="Only owners and admins can manage branches."
+      />
+    );
+  }
 
   const branch = await getBranch(branchId);
   if (!branch || branch.restaurant_id !== workspace.restaurant!.id) {

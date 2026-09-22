@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { AccessDenied } from "@/components/common/AccessDenied";
 import { PageHeader } from "@/components/common/PageHeader";
 import { CustomerExperienceForm } from "@/components/settings/CustomerExperienceForm";
 import { requireWorkspacePage } from "@/lib/context/workspace";
+import { canAccessHref } from "@/lib/auth/navigation";
+import { SETTINGS_CUSTOMER_PATH } from "@/lib/auth/paths";
 import { SETTINGS_CUSTOMER_BREADCRUMBS } from "@/lib/navigation/breadcrumbs";
 import { getRestaurantSettings } from "@/services/settings";
 
@@ -12,6 +15,17 @@ export const metadata: Metadata = {
 
 export default async function CustomerExperiencePage() {
   const workspace = await requireWorkspacePage();
+
+  if (!canAccessHref(workspace.role, SETTINGS_CUSTOMER_PATH)) {
+    return (
+      <AccessDenied
+        title="Customer experience"
+        description="Guest-facing preferences for future queue screens. These settings do not publish a customer page yet."
+        breadcrumbs={SETTINGS_CUSTOMER_BREADCRUMBS}
+      />
+    );
+  }
+
   const settings = await getRestaurantSettings(workspace.restaurant!.id);
 
   if (!settings) {

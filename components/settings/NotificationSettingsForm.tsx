@@ -31,11 +31,13 @@ import {
   type NotificationSettingsValues,
 } from "@/lib/validations/notifications";
 import type { RestaurantSettings } from "@/services/settings";
+import type { NotificationProviderStatus } from "@/lib/notifications/provider-status";
 
 type NotificationSettingsFormProps = {
   restaurantId: string;
   settings: RestaurantSettings;
   canManage: boolean;
+  providerStatus: NotificationProviderStatus;
 };
 
 function ToggleRow({
@@ -82,6 +84,7 @@ export function NotificationSettingsForm({
   restaurantId,
   settings,
   canManage,
+  providerStatus,
 }: NotificationSettingsFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -141,6 +144,32 @@ export function NotificationSettingsForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          <ul className="bg-muted/50 space-y-2 rounded-lg px-3 py-3 text-sm">
+            <li>
+              <span className="font-medium">Email:</span>{" "}
+              <span className="text-muted-foreground">
+                {providerStatus.email.label}
+              </span>
+            </li>
+            <li>
+              <span className="font-medium">WhatsApp:</span>{" "}
+              <span className="text-muted-foreground">
+                {providerStatus.whatsapp.label}
+              </span>
+            </li>
+            <li>
+              <span className="font-medium">In-app:</span>{" "}
+              <span className="text-muted-foreground">
+                {providerStatus.inApp.label}
+              </span>
+            </li>
+            <li>
+              <span className="font-medium">Web Push:</span>{" "}
+              <span className="text-muted-foreground">
+                {providerStatus.push.label}
+              </span>
+            </li>
+          </ul>
           <Controller
             control={form.control}
             name="notificationsEmailEnabled"
@@ -148,10 +177,14 @@ export function NotificationSettingsForm({
               <ToggleRow
                 id="notificationsEmailEnabled"
                 label="Email"
-                description="Send queue updates by email when a guest has an email on file and Resend is configured."
+                description={
+                  providerStatus.email.configured
+                    ? "Send queue updates by email when a guest has an email on file."
+                    : "Blocked until SMTP_* or RESEND_* is configured on the server."
+                }
                 checked={field.value}
                 onCheckedChange={field.onChange}
-                disabled={disabled}
+                disabled={disabled || !providerStatus.email.configured}
                 icon={<Mail />}
               />
             )}
@@ -163,10 +196,14 @@ export function NotificationSettingsForm({
               <ToggleRow
                 id="notificationsWhatsappEnabled"
                 label="WhatsApp"
-                description="Send WhatsApp messages when a guest has a phone number and WhatsApp Cloud API is configured."
+                description={
+                  providerStatus.whatsapp.configured
+                    ? "Send WhatsApp messages when a guest has a phone number."
+                    : "Blocked until WhatsApp Cloud API credentials are configured."
+                }
                 checked={field.value}
                 onCheckedChange={field.onChange}
-                disabled={disabled}
+                disabled={disabled || !providerStatus.whatsapp.configured}
                 icon={<MessageCircle />}
               />
             )}
@@ -178,10 +215,14 @@ export function NotificationSettingsForm({
               <ToggleRow
                 id="notificationsSmsEnabled"
                 label="SMS"
-                description="Send SMS when a guest has a phone number and an SMS provider is configured."
+                description={
+                  providerStatus.sms.configured
+                    ? "Send SMS when a guest has a phone number."
+                    : "Blocked until an SMS provider is configured."
+                }
                 checked={field.value}
                 onCheckedChange={field.onChange}
-                disabled={disabled}
+                disabled={disabled || !providerStatus.sms.configured}
                 icon={<Smartphone />}
               />
             )}
@@ -193,7 +234,7 @@ export function NotificationSettingsForm({
               <ToggleRow
                 id="notificationsInAppEnabled"
                 label="In-app"
-                description="Show staff alerts in the dashboard notification bell."
+                description="Show staff alerts in the dashboard notification bell for join, call, seat, cancel, and no-show."
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 disabled={disabled}
@@ -236,8 +277,8 @@ export function NotificationSettingsForm({
             render={({ field }) => (
               <ToggleRow
                 id="notifyCustomerOnCalled"
-                label="Table ready"
-                description="High-priority alert when a guest is called."
+                label="Table ready / seated"
+                description="Notify guests when they are called or seated."
                 checked={field.value}
                 onCheckedChange={field.onChange}
                 disabled={disabled}

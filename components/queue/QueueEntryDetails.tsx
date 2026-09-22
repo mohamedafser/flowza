@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { Loader2 } from "lucide-react";
 import {
   formatWaitMinutes,
   queueEntryStatusLabel,
@@ -34,6 +35,7 @@ type QueueEntryDetailsProps = {
   timeFormat: TimeFormat;
   canManage: boolean;
   pending: boolean;
+  loadingAction?: "call" | "complete" | null;
   onCall: () => void;
   onSkip: () => void;
   onCancel: () => void;
@@ -62,6 +64,7 @@ export function QueueEntryDetails({
   timeFormat,
   canManage,
   pending,
+  loadingAction = null,
   onCall,
   onSkip,
   onCancel,
@@ -136,8 +139,12 @@ export function QueueEntryDetails({
                 className="w-full sm:w-auto"
                 disabled={pending}
                 onClick={onCall}
+                aria-busy={loadingAction === "call"}
               >
-                Call
+                {loadingAction === "call" ? (
+                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                ) : null}
+                {loadingAction === "call" ? "Calling…" : "Call"}
               </Button>
             ) : null}
             {actions.canSeat ? (
@@ -154,8 +161,12 @@ export function QueueEntryDetails({
                 className="w-full sm:w-auto"
                 disabled={pending}
                 onClick={onComplete}
+                aria-busy={loadingAction === "complete"}
               >
-                Complete
+                {loadingAction === "complete" ? (
+                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                ) : null}
+                {loadingAction === "complete" ? "Completing…" : "Complete"}
               </Button>
             ) : null}
             {actions.canSkip ? (

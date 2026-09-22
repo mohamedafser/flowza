@@ -1,7 +1,5 @@
 import {
   requirePermission,
-  requireRestaurantMembership,
-  requireVerifiedAuth,
 } from "@/lib/auth/guards";
 import { STAFF_NOTIFICATION_PAGE_SIZE } from "@/lib/notifications/constants";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +22,16 @@ export type StaffNotificationList = {
   nextCursor: string | null;
 };
 
-type NotificationRow = Tables<"notifications">;
+type NotificationRow = Pick<
+  Tables<"notifications">,
+  | "id"
+  | "type"
+  | "title"
+  | "body"
+  | "created_at"
+  | "queue_entry_id"
+  | "branch_id"
+>;
 
 function mapItem(
   row: NotificationRow,
@@ -42,6 +49,39 @@ function mapItem(
   };
 }
 
+const STAFF_UNREAD_WINDOW = 100;
+
+/**
+ * Unread among the most recent staff IN_APP notifications for this restaurant.
+ * Scoped read lookup avoids loading every notification_reads row for the user.
+ */
+async function computeStaffUnreadCount(input: {
+  restaurantId: string;
+  userId: string;
+}): Promise<number> {
+  const supabase = await createClient();
+  const { data: recentStaff } = await supabase
+    .from("notifications")
+    .select("id")
+    .eq("restaurant_id", input.restaurantId)
+    .eq("audience", "STAFF")
+    .eq("channel", "IN_APP")
+    .order("created_at", { ascending: false })
+    .limit(STAFF_UNREAD_WINDOW);
+
+  const ids = (recentStaff ?? []).map((row) => row.id);
+  if (ids.length === 0) return 0;
+
+  const { data: reads } = await supabase
+    .from("notification_reads")
+    .select("notification_id")
+    .eq("user_id", input.userId)
+    .in("notification_id", ids);
+
+  const readIds = new Set((reads ?? []).map((row) => row.notification_id));
+  return ids.filter((id) => !readIds.has(id)).length;
+}
+
 /**
  * List staff in-app notifications for the current user in a restaurant.
  * Never returns customer email/phone — only title/body already stored.
@@ -50,21 +90,30 @@ export async function listStaffNotifications(input: {
   restaurantId: string;
   cursor?: string | null;
   limit?: number;
+  /** When true, skip the page query and return unreadCount only. */
+  unreadOnly?: boolean;
 }): Promise<StaffNotificationList> {
-  const auth = await requireVerifiedAuth();
-  await requireRestaurantMembership(input.restaurantId);
-  await requirePermission(input.restaurantId, "queue.view");
+  // Single auth path — requirePermission already verifies membership.
+  const auth = await requirePermission(input.restaurantId, "queue.view");
+  const supabase = await createClient();
+
+  if (input.unreadOnly) {
+    const unreadCount = await computeStaffUnreadCount({
+      restaurantId: input.restaurantId,
+      userId: auth.user.id,
+    });
+    return { items: [], unreadCount, nextCursor: null };
+  }
 
   const limit = Math.min(
     Math.max(input.limit ?? STAFF_NOTIFICATION_PAGE_SIZE, 1),
     50,
   );
-  const supabase = await createClient();
 
   let query = supabase
     .from("notifications")
     .select(
-      "id, type, title, body, created_at, queue_entry_id, branch_id, restaurant_id, audience, channel",
+      "id, type, title, body, created_at, queue_entry_id, branch_id",
     )
     .eq("restaurant_id", input.restaurantId)
     .eq("audience", "STAFF")
@@ -76,7 +125,14 @@ export async function listStaffNotifications(input: {
     query = query.lt("created_at", input.cursor);
   }
 
-  const { data: rows, error } = await query;
+  const [{ data: rows, error }, unreadCount] = await Promise.all([
+    query,
+    computeStaffUnreadCount({
+      restaurantId: input.restaurantId,
+      userId: auth.user.id,
+    }),
+  ]);
+
   if (error || !rows) {
     return { items: [], unreadCount: 0, nextCursor: null };
   }
@@ -97,44 +153,11 @@ export async function listStaffNotifications(input: {
     }
   }
 
-  const { count } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("restaurant_id", input.restaurantId)
-    .eq("audience", "STAFF")
-    .eq("channel", "IN_APP");
-
-  const { data: allReads } = await supabase
-    .from("notification_reads")
-    .select("notification_id")
-    .eq("user_id", auth.user.id);
-
-  const readIds = new Set((allReads ?? []).map((r) => r.notification_id));
-
-  // Unread = staff notifications without a read row for this user.
-  // Approximate via count - intersection would need a join; fetch recent unread ids.
-  const { data: recentStaff } = await supabase
-    .from("notifications")
-    .select("id")
-    .eq("restaurant_id", input.restaurantId)
-    .eq("audience", "STAFF")
-    .eq("channel", "IN_APP")
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  const unreadCount = (recentStaff ?? []).filter(
-    (row) => !readIds.has(row.id),
-  ).length;
-
-  void count;
-
   const hasMore = rows.length > limit;
   const nextCursor = hasMore ? (page[page.length - 1]?.created_at ?? null) : null;
 
   return {
-    items: page.map((row) =>
-      mapItem(row as NotificationRow, readMap.get(row.id) ?? null),
-    ),
+    items: page.map((row) => mapItem(row, readMap.get(row.id) ?? null)),
     unreadCount,
     nextCursor,
   };
@@ -143,7 +166,6 @@ export async function listStaffNotifications(input: {
 export async function markStaffNotificationRead(
   notificationId: string,
 ): Promise<{ ok: true } | { ok: false; message: string }> {
-  const auth = await requireVerifiedAuth();
   const supabase = await createClient();
 
   const { data: notification, error } = await supabase
@@ -156,11 +178,11 @@ export async function markStaffNotificationRead(
     return { ok: false, message: "Notification not found." };
   }
 
-  await requireRestaurantMembership(notification.restaurant_id);
-
   if (notification.audience !== "STAFF") {
     return { ok: false, message: "Notification not found." };
   }
+
+  const auth = await requirePermission(notification.restaurant_id, "queue.view");
 
   const { error: upsertError } = await supabase.from("notification_reads").upsert(
     {
@@ -172,6 +194,14 @@ export async function markStaffNotificationRead(
   );
 
   if (upsertError) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "mark_read_failed",
+        error: upsertError.message,
+        code: upsertError.code,
+      }),
+    );
     return { ok: false, message: "Unable to mark notification as read." };
   }
 
@@ -181,8 +211,7 @@ export async function markStaffNotificationRead(
 export async function markAllStaffNotificationsRead(
   restaurantId: string,
 ): Promise<{ ok: true; marked: number } | { ok: false; message: string }> {
-  const auth = await requireVerifiedAuth();
-  await requireRestaurantMembership(restaurantId);
+  const auth = await requirePermission(restaurantId, "queue.view");
   const supabase = await createClient();
 
   const { data: rows, error } = await supabase
@@ -192,31 +221,76 @@ export async function markAllStaffNotificationsRead(
     .eq("audience", "STAFF")
     .eq("channel", "IN_APP")
     .order("created_at", { ascending: false })
-    .limit(100);
+    .limit(STAFF_UNREAD_WINDOW);
 
-  if (error || !rows) {
+  if (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "mark_all_read_list_failed",
+        error: error.message,
+        code: error.code,
+      }),
+    );
     return { ok: false, message: "Unable to mark notifications as read." };
   }
 
-  if (rows.length === 0) {
+  const ids = (rows ?? []).map((row) => row.id);
+  if (ids.length === 0) {
+    return { ok: true, marked: 0 };
+  }
+
+  const { data: existingReads, error: readsError } = await supabase
+    .from("notification_reads")
+    .select("notification_id")
+    .eq("user_id", auth.user.id)
+    .in("notification_id", ids);
+
+  if (readsError) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "mark_all_read_reads_failed",
+        error: readsError.message,
+        code: readsError.code,
+      }),
+    );
+    return { ok: false, message: "Unable to mark notifications as read." };
+  }
+
+  const alreadyRead = new Set(
+    (existingReads ?? []).map((row) => row.notification_id),
+  );
+  const unreadIds = ids.filter((id) => !alreadyRead.has(id));
+
+  if (unreadIds.length === 0) {
     return { ok: true, marked: 0 };
   }
 
   const now = new Date().toISOString();
-  const { error: upsertError } = await supabase.from("notification_reads").upsert(
-    rows.map((row) => ({
-      notification_id: row.id,
+  // Insert only — notification_reads RLS has no UPDATE policy, so upsert
+  // fails when some rows were already marked read.
+  const { error: insertError } = await supabase.from("notification_reads").insert(
+    unreadIds.map((notificationId) => ({
+      notification_id: notificationId,
       user_id: auth.user.id,
       read_at: now,
     })),
-    { onConflict: "notification_id,user_id" },
   );
 
-  if (upsertError) {
+  if (insertError) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "mark_all_read_insert_failed",
+        error: insertError.message,
+        code: insertError.code,
+      }),
+    );
     return { ok: false, message: "Unable to mark notifications as read." };
   }
 
-  return { ok: true, marked: rows.length };
+  return { ok: true, marked: unreadIds.length };
 }
 
 export async function getStaffUnreadCount(
@@ -224,7 +298,7 @@ export async function getStaffUnreadCount(
 ): Promise<number> {
   const list = await listStaffNotifications({
     restaurantId,
-    limit: 1,
+    unreadOnly: true,
   });
   return list.unreadCount;
 }

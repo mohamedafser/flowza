@@ -1,22 +1,25 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
-import { forgotPasswordAction } from "@/app/actions/auth";
+import { ArrowRight, KeyRound } from "lucide-react";
+import { forgotPasswordRequest } from "@/lib/api/auth-client";
 import { AuthCard, AuthLink } from "@/components/auth/AuthCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { VERIFY_RESET_OTP_PATH } from "@/lib/auth/paths";
 import {
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from "@/lib/validations/auth";
 
 export function ForgotPasswordForm() {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [sent, setSent] = useState(false);
 
   const form = useForm<ForgotPasswordInput>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -24,40 +27,31 @@ export function ForgotPasswordForm() {
   });
 
   const onSubmit = form.handleSubmit((values) => {
+    if (pending) return;
     startTransition(async () => {
-      const result = await forgotPasswordAction(values);
-      if (!result.ok) {
-        toast.error(result.message ?? "Unable to send reset email.");
+      const result = await forgotPasswordRequest(values);
+      if (!result.ok && result.code !== "RATE_LIMITED") {
+        toast.error(result.message ?? "Unable to send reset code.");
         return;
       }
-      setSent(true);
-      toast.success(result.message);
+      if (result.code === "RATE_LIMITED") {
+        toast.error(result.message);
+      } else {
+        toast.success(result.message);
+      }
+      router.replace(
+        result.data?.redirectTo ??
+          `${VERIFY_RESET_OTP_PATH}?email=${encodeURIComponent(values.email.trim().toLowerCase())}`,
+      );
+      router.refresh();
     });
   });
-
-  if (sent) {
-    return (
-      <AuthCard
-        title="Check your email"
-        description="If an account exists for this email, you'll receive a password reset link."
-        footer={
-          <>
-            Remembered it? <AuthLink href="/login">Log in</AuthLink>
-          </>
-        }
-      >
-        <p className="text-muted-foreground text-sm">
-          The link expires after a short time. You can request another reset if
-          needed.
-        </p>
-      </AuthCard>
-    );
-  }
 
   return (
     <AuthCard
       title="Forgot password"
-      description="Enter your email and we'll send a reset link if an account exists."
+      description="Enter your email and we'll send a 6-digit reset code if an account exists."
+      icon={KeyRound}
       footer={
         <>
           Back to <AuthLink href="/login">log in</AuthLink>
@@ -82,8 +76,9 @@ export function ForgotPasswordForm() {
             </p>
           ) : null}
         </div>
-        <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Sending…" : "Send reset link"}
+        <Button type="submit" className="auth-submit w-full" disabled={pending}>
+          {pending ? "Sending…" : "Send reset code"}
+          {pending ? null : <ArrowRight className="size-4" />}
         </Button>
       </form>
     </AuthCard>

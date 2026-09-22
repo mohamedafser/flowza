@@ -24,6 +24,7 @@ function membership(
   return {
     id: `m-${restaurantId}`,
     restaurant_id: restaurantId,
+    organization_id: restaurantId,
     user_id: "user-1",
     role,
     status: "ACTIVE",
@@ -31,6 +32,7 @@ function membership(
     updated_at: new Date().toISOString(),
     restaurant: {
       id: restaurantId,
+      organization_id: restaurantId,
       name: `Restaurant ${restaurantId}`,
       slug: `restaurant-${restaurantId}`,
       logo_url: null,
@@ -50,6 +52,7 @@ function branch(id: string, restaurantId: string, isActive: boolean): Branch {
   return {
     id,
     restaurant_id: restaurantId,
+    organization_id: restaurantId,
     name: `Branch ${id}`,
     slug: `branch-${id}`,
     address_line_1: null,

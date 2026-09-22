@@ -8,6 +8,7 @@ export const NOTIFICATION_CHANNELS = [
   "SMS",
   "WHATSAPP",
   "IN_APP",
+  "PUSH",
 ] as const;
 
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
@@ -48,6 +49,8 @@ export type CustomerNotificationType =
 
 export const STAFF_NOTIFICATION_TYPES = [
   "STAFF_QUEUE_JOINED",
+  "STAFF_QUEUE_CALLED",
+  "STAFF_QUEUE_SEATED",
   "STAFF_QUEUE_CANCELLED",
   "STAFF_QUEUE_NO_SHOW",
   "STAFF_QUEUE_BUSY",
@@ -91,13 +94,17 @@ export type RenderedTemplate = {
   title: string;
   body: string;
   subject?: string;
+  /** Optional rich HTML for EMAIL channel (plain text remains in `body`). */
+  html?: string;
 };
 
 export type NotificationProviderName =
   | "resend"
+  | "smtp"
   | "whatsapp_cloud"
   | "sms"
   | "in_app"
+  | "web_push"
   | "none";
 
 export type NotificationDeliveryErrorCode =

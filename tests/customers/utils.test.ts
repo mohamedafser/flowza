@@ -27,6 +27,7 @@ function customer(
   partial: Partial<CustomerRecord> & { id: string; name: string },
 ): CustomerListItem {
   return withVisitPlaceholder({
+    organization_id: "org-a",
     restaurant_id: "rest-a",
     phone: null,
     email: null,

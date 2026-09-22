@@ -5,6 +5,7 @@ import {
   LOGIN_PATH,
   RESET_PASSWORD_PATH,
   VERIFY_EMAIL_PATH,
+  VERIFY_RESET_OTP_PATH,
   isAuthPagePath,
   isProtectedPath,
   isPublicAuthAssetPath,
@@ -85,6 +86,10 @@ export async function updateSession(request: NextRequest) {
   const isAuthPage = isAuthPagePath(pathname);
   const isVerifyEmail = pathname === VERIFY_EMAIL_PATH;
   const isResetPassword = pathname === RESET_PASSWORD_PATH;
+  const isVerifyResetOtp = pathname === VERIFY_RESET_OTP_PATH;
+  const hasPasswordResetCookie = Boolean(
+    request.cookies.get("flowza_password_reset")?.value,
+  );
 
   if (isPublicAuthAssetPath(pathname)) {
     return supabaseResponse;
@@ -109,7 +114,8 @@ export async function updateSession(request: NextRequest) {
       pathname === LOGIN_PATH ||
       pathname === "/signup" ||
       pathname === "/forgot-password" ||
-      isVerifyEmail
+      isVerifyEmail ||
+      isVerifyResetOtp
     ) {
       return redirectTo(request, DASHBOARD_OVERVIEW_PATH, supabaseResponse);
     }
@@ -119,19 +125,23 @@ export async function updateSession(request: NextRequest) {
     if (
       pathname === LOGIN_PATH ||
       pathname === "/signup" ||
-      pathname === "/forgot-password"
+      pathname === "/forgot-password" ||
+      isVerifyResetOtp
     ) {
       return redirectTo(request, VERIFY_EMAIL_PATH, supabaseResponse);
     }
   }
 
   if (!user && isVerifyEmail) {
-    return redirectTo(request, LOGIN_PATH, supabaseResponse);
+    // Allow anonymous OTP entry when redirected with ?email= after an
+    // unverified login (Supabase may refuse a session until confirmed).
+    return supabaseResponse;
   }
 
-  // Reset password requires a recovery session established via /auth/callback.
-  if (!user && isResetPassword) {
-    return redirectTo(request, LOGIN_PATH, supabaseResponse);
+  // Password reset requires a short-lived OTP authorization cookie, not a
+  // recovery magic-link session.
+  if (isResetPassword && !hasPasswordResetCookie) {
+    return redirectTo(request, "/forgot-password", supabaseResponse);
   }
 
   if (isAuthPage) {

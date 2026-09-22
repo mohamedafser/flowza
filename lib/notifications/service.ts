@@ -53,6 +53,8 @@ const notificationTypeSchema = z.enum([
   "QUEUE_CANCELLED",
   "QUEUE_NO_SHOW",
   "STAFF_QUEUE_JOINED",
+  "STAFF_QUEUE_CALLED",
+  "STAFF_QUEUE_SEATED",
   "STAFF_QUEUE_CANCELLED",
   "STAFF_QUEUE_NO_SHOW",
   "STAFF_QUEUE_BUSY",
@@ -68,7 +70,13 @@ const notificationTypeSchema = z.enum([
   "STAFF_RESERVATION_NO_SHOW",
 ]);
 
-const notificationChannelSchema = z.enum(["EMAIL", "SMS", "WHATSAPP", "IN_APP"]);
+const notificationChannelSchema = z.enum([
+  "EMAIL",
+  "SMS",
+  "WHATSAPP",
+  "IN_APP",
+  "PUSH",
+]);
 
 const sendInputSchema = z.object({
   restaurantId: z.string().uuid(),
@@ -141,9 +149,35 @@ async function resolveDbClient(
   preferred?: SupabaseClient<Database>,
 ): Promise<SupabaseClient<Database>> {
   if (preferred) return preferred;
+
+  const userClient = await createClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
+  if (user) {
+    return userClient;
+  }
+
   const admin = createServiceRoleClient();
-  if (admin) return admin;
-  return createClient();
+  if (admin) {
+    const probe = await admin
+      .from("restaurant_settings")
+      .select("restaurant_id")
+      .limit(1);
+    if (!probe.error) {
+      return admin;
+    }
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "service_role_unavailable",
+        error: probe.error.message,
+        code: probe.error.code,
+      }),
+    );
+  }
+
+  return userClient;
 }
 
 function safePayload(
@@ -223,7 +257,9 @@ function shouldSkipByPreferences(input: {
       return "customer_join_disabled";
     }
     if (
-      (input.type === "QUEUE_CALLED" || input.type === "QUEUE_READY") &&
+      (input.type === "QUEUE_CALLED" ||
+        input.type === "QUEUE_READY" ||
+        input.type === "QUEUE_SEATED") &&
       !input.restaurantSettings.notifyCustomerOnCalled
     ) {
       return "customer_called_disabled";
@@ -449,6 +485,8 @@ export async function sendNotification(
     recipient: parsed.data.recipient,
     template: rendered,
     providers: options?.providers ?? createDefaultProviders(),
+    restaurantId: parsed.data.restaurantId,
+    audience,
   });
 
   const updated = await markDelivery(
@@ -487,27 +525,38 @@ export async function sendNotification(
 }
 
 /**
- * Schedule notification work without blocking the caller.
- * Uses Next.js `after` when available; otherwise fire-and-forget.
+ * Schedule notification work without blocking the caller when possible.
+ * `after()` must be registered synchronously during the request — awaiting
+ * a dynamic import first often runs too late and the work is dropped.
  */
 export function scheduleNotificationWork(work: () => Promise<void>): void {
-  void (async () => {
-    try {
-      const nextServer = await import("next/server");
-      if (typeof nextServer.after === "function") {
-        nextServer.after(() => {
-          void work().catch(() => {
-            // Isolation: notification failures must never surface to users.
-          });
-        });
-        return;
-      }
-    } catch {
-      // Not in a Next.js request context (tests / scripts).
-    }
-
-    void work().catch(() => {
-      // Isolation: notification failures must never surface to users.
+  const run = () =>
+    work().catch((error) => {
+      console.error(
+        JSON.stringify({
+          scope: "notifications",
+          message: "background_failed",
+          result: "failed",
+          error: error instanceof Error ? error.message : "unknown",
+        }),
+      );
     });
-  })();
+
+  try {
+    // Synchronous require keeps registration inside the active request.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("next/server") as {
+      after?: (task: () => void | Promise<void>) => void;
+    };
+    if (typeof mod.after === "function") {
+      mod.after(() => {
+        void run();
+      });
+      return;
+    }
+  } catch {
+    // Outside Next.js (tests / scripts).
+  }
+
+  void run();
 }

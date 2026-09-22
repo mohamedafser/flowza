@@ -114,13 +114,35 @@ async function createRestaurantDirect(
   slug: string,
 ): Promise<CreateRestaurantResult> {
   const supabase = await createClient();
+  const organizationId = crypto.randomUUID();
   const restaurantId = crypto.randomUUID();
 
   // Ensure profile row exists for FK + membership.
   await supabase.from("profiles").upsert({ id: userId }, { onConflict: "id" });
 
+  const { error: organizationError } = await supabase
+    .from("organizations")
+    .insert({
+      id: organizationId,
+      name: input.name,
+      business_type: "RESTAURANT",
+      status: "ACTIVE",
+    });
+
+  if (organizationError) {
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      message: safeDatabaseMessage(
+        organizationError,
+        "Unable to create organization. Please try again.",
+      ),
+    };
+  }
+
   const { error: insertError } = await supabase.from("restaurants").insert({
     id: restaurantId,
+    organization_id: organizationId,
     name: input.name,
     slug,
     email: input.email,
@@ -148,6 +170,7 @@ async function createRestaurantDirect(
     .from("restaurant_members")
     .insert({
       restaurant_id: restaurantId,
+      organization_id: organizationId,
       user_id: userId,
       role: "OWNER",
       status: "ACTIVE",

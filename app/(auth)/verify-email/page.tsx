@@ -5,7 +5,9 @@ import {
   isEmailVerified,
   resolvePostAuthDestination,
 } from "@/lib/auth/session";
+import { getOtpStatus } from "@/services/auth/otp";
 import { LOGIN_PATH } from "@/lib/auth/paths";
+import { emailSchema } from "@/lib/validations/auth";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,7 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 type VerifyEmailPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ email?: string }>;
 };
 
 export default async function VerifyEmailPage({
@@ -32,20 +34,49 @@ export default async function VerifyEmailPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
+  if (user) {
+    const verified = isEmailVerified(user);
+    if (verified) {
+      redirect(await resolvePostAuthDestination(user));
+    }
+
+    const email = user.email ?? "Unknown";
+    const status =
+      user.email != null
+        ? await getOtpStatus({ email: user.email, purpose: "SIGNUP" })
+        : {
+            hasActive: false,
+            expiresAt: null,
+            resendAvailableAt: null,
+            locked: false,
+          };
+
+    return (
+      <VerifyEmailPanel
+        email={email}
+        verified={false}
+        expiresAt={status.expiresAt}
+        resendAvailableAt={status.resendAvailableAt}
+      />
+    );
+  }
+
+  // No session — allow verify via ?email= after login was blocked for confirmations.
+  const parsedEmail = emailSchema.safeParse(params.email ?? "");
+  if (!parsedEmail.success) {
     redirect(LOGIN_PATH);
   }
 
-  const verified = isEmailVerified(user);
-  if (verified) {
-    redirect(await resolvePostAuthDestination(user));
-  }
+  const email = parsedEmail.data.toLowerCase();
+  const status = await getOtpStatus({ email, purpose: "SIGNUP" });
 
   return (
     <VerifyEmailPanel
-      email={user.email ?? "Unknown"}
-      verified={verified}
-      linkError={params.error === "link_invalid"}
+      email={email}
+      verified={false}
+      expiresAt={status.expiresAt}
+      resendAvailableAt={status.resendAvailableAt}
+      requiresEmailParam
     />
   );
 }

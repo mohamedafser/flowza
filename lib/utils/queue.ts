@@ -11,6 +11,7 @@ import {
 
 export type QueueRecord = {
   id: string;
+  organization_id: string;
   branch_id: string;
   name: string;
   status: QueueStatus;
@@ -81,10 +82,14 @@ export type QueueScopeCheck = {
   expectedQueueId?: string;
   customerRestaurantId?: string | null;
   tableBranchId?: string | null;
+  membershipOrganizationId?: string | null;
+  queueOrganizationId?: string | null;
+  currentOrganizationId?: string | null;
+  customerOrganizationId?: string | null;
 };
 
 export type QueueScopeFailure =
-  "restaurant" | "branch" | "queue" | "customer" | "table";
+  "restaurant" | "organization" | "branch" | "queue" | "customer" | "table";
 
 export function canViewQueue(role: MemberRole): boolean {
   return hasPermission(role, "queue.view");
@@ -267,6 +272,28 @@ export function authorizeQueueScope(
     input.currentRestaurantId !== input.queueRestaurantId
   ) {
     return { ok: false, reason: "restaurant" };
+  }
+
+  const orgIds = [
+    input.membershipOrganizationId,
+    input.queueOrganizationId,
+    input.currentOrganizationId,
+  ].filter((value): value is string => Boolean(value));
+
+  if (orgIds.length > 0) {
+    const expected =
+      input.currentOrganizationId ??
+      input.membershipOrganizationId ??
+      orgIds[0]!;
+    if (orgIds.some((id) => id !== expected)) {
+      return { ok: false, reason: "organization" };
+    }
+    if (
+      input.customerOrganizationId &&
+      input.customerOrganizationId !== expected
+    ) {
+      return { ok: false, reason: "customer" };
+    }
   }
 
   if (input.queueBranchId !== input.expectedBranchId) {

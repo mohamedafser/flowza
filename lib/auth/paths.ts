@@ -3,6 +3,7 @@ export const SIGNUP_PATH = "/signup";
 export const FORGOT_PASSWORD_PATH = "/forgot-password";
 export const RESET_PASSWORD_PATH = "/reset-password";
 export const VERIFY_EMAIL_PATH = "/verify-email";
+export const VERIFY_RESET_OTP_PATH = "/verify-reset-otp";
 export const AUTH_CALLBACK_PATH = "/auth/callback";
 export const DASHBOARD_PATH = "/dashboard";
 export const DASHBOARD_OVERVIEW_PATH = "/dashboard/overview";
@@ -15,6 +16,7 @@ export const SETTINGS_PATH = "/settings";
 export const SETTINGS_RESTAURANT_PATH = "/settings/restaurant";
 export const SETTINGS_GENERAL_PATH = "/settings/general";
 export const SETTINGS_BRANCHES_PATH = "/settings/branches";
+export const SETTINGS_MEMBERS_PATH = "/settings/members";
 export const SETTINGS_HOURS_PATH = "/settings/hours";
 export const SETTINGS_QUEUE_PATH = "/settings/queue";
 export const SETTINGS_CUSTOMER_PATH = "/settings/customer";
@@ -39,6 +41,7 @@ export const AUTH_PAGE_PATHS = [
   FORGOT_PASSWORD_PATH,
   RESET_PASSWORD_PATH,
   VERIFY_EMAIL_PATH,
+  VERIFY_RESET_OTP_PATH,
 ] as const;
 
 export function isProtectedPath(pathname: string): boolean {
@@ -64,6 +67,7 @@ export function isPublicAuthAssetPath(pathname: string): boolean {
     pathname === "/manifest.webmanifest" ||
     pathname.startsWith("/icons/") ||
     pathname === "/sw.js" ||
+    pathname === "/sw-push.js" ||
     pathname.startsWith("/workbox-") ||
     pathname === PUBLIC_QUEUE_PATH ||
     pathname.startsWith(`${PUBLIC_QUEUE_PATH}/`) ||

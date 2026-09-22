@@ -5,6 +5,7 @@ import type {
   RenderedTemplate,
   ReservationNotificationTemplateData,
 } from "@/lib/notifications/types";
+import { renderNotificationEmail } from "@/emails/templates/notifications";
 
 type TemplateData = QueueNotificationTemplateData &
   Partial<ReservationNotificationTemplateData> &
@@ -30,14 +31,8 @@ function replaceTokens(template: string, data: TemplateData): string {
       "{{reservationCode}}",
       String(data.reservationCode ?? data.token ?? ""),
     )
-    .replaceAll(
-      "{{reservationDate}}",
-      String(data.reservationDate ?? ""),
-    )
-    .replaceAll(
-      "{{reservationTime}}",
-      String(data.reservationTime ?? ""),
-    )
+    .replaceAll("{{reservationDate}}", String(data.reservationDate ?? ""))
+    .replaceAll("{{reservationTime}}", String(data.reservationTime ?? ""))
     .replaceAll("{{tableName}}", String(data.tableName ?? "TBD"));
 }
 
@@ -46,7 +41,10 @@ type TemplateDefinition = {
   body: string;
   subject?: string;
   channels?: Partial<
-    Record<NotificationChannel, { title?: string; body?: string; subject?: string }>
+    Record<
+      NotificationChannel,
+      { title?: string; body?: string; subject?: string }
+    >
   >;
 };
 
@@ -139,6 +137,14 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
   STAFF_QUEUE_JOINED: {
     title: "New guest in queue",
     body: "{{customerName}} joined {{queueName}} at {{branchName}}. Token {{token}} · party of {{partySize}}.",
+  },
+  STAFF_QUEUE_CALLED: {
+    title: "Guest called",
+    body: "{{customerName}} called (token {{token}}) on {{queueName}} at {{branchName}}.",
+  },
+  STAFF_QUEUE_SEATED: {
+    title: "Guest seated",
+    body: "{{customerName}} seated (token {{token}}) on {{queueName}} at {{branchName}}.",
   },
   STAFF_QUEUE_CANCELLED: {
     title: "Guest cancelled",
@@ -235,15 +241,31 @@ export function renderNotificationTemplate(
   channel: NotificationChannel,
   data: TemplateData,
 ): RenderedTemplate {
+  if (channel === "EMAIL") {
+    const email = renderNotificationEmail(type, data);
+    return {
+      title: email.subject,
+      subject: email.subject,
+      body: email.text,
+      html: email.html,
+    };
+  }
+
+  // Push uses the compact in-app / default title+body copy.
   const definition = TEMPLATES[type];
   if (!definition) {
     return {
       title: type,
-      body: replaceTokens("{{restaurantName}} — {{reservationCode}}{{token}}", data),
+      body: replaceTokens(
+        "{{restaurantName}} — {{reservationCode}}{{token}}",
+        data,
+      ),
     };
   }
 
-  const override = definition.channels?.[channel];
+  const channelForOverride =
+    channel === "PUSH" ? "IN_APP" : channel;
+  const override = definition.channels?.[channelForOverride];
   const title = replaceTokens(override?.title ?? definition.title, data);
   const body = replaceTokens(override?.body ?? definition.body, data);
   const subjectSource = override?.subject ?? definition.subject;
@@ -254,6 +276,8 @@ export function renderNotificationTemplate(
   return { title, body, subject };
 }
 
-export function isKnownNotificationType(value: string): value is NotificationType {
+export function isKnownNotificationType(
+  value: string,
+): value is NotificationType {
   return value in TEMPLATES || Object.keys(TEMPLATES).includes(value);
 }

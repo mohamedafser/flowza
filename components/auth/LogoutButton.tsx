@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { LogOut } from "lucide-react";
-import { signOutAction } from "@/app/actions/auth";
+import { signOutRequest } from "@/lib/api/auth-client";
 import { Button } from "@/components/ui/button";
+import { LOGIN_PATH } from "@/lib/auth/paths";
 
 type LogoutButtonProps = {
   variant?: React.ComponentProps<typeof Button>["variant"];
@@ -20,6 +22,7 @@ export function LogoutButton({
   label = "Sign out",
   iconOnly = false,
 }: LogoutButtonProps) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -32,7 +35,9 @@ export function LogoutButton({
       aria-label={label}
       onClick={() => {
         startTransition(async () => {
-          await signOutAction();
+          await signOutRequest();
+          router.replace(LOGIN_PATH);
+          router.refresh();
         });
       }}
     >

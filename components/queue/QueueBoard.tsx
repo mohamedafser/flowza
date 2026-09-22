@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -16,6 +15,7 @@ import {
   CheckCircle2,
   History,
   ListOrdered,
+  Loader2,
   Megaphone,
   Pause,
   Play,
@@ -27,20 +27,18 @@ import {
   Utensils,
 } from "lucide-react";
 import {
-  callNextQueueEntryAction,
-  callQueueEntryAction,
-  cancelQueueEntryAction,
-  completeQueueEntryAction,
-  getQueueBundleAction,
-  markQueueEntryNoShowAction,
-  seatQueueEntryAction,
-  skipQueueEntryAction,
-  updateQueueAction,
-  updateQueueStatusAction,
-} from "@/app/actions/queue";
-import {
   addCustomerToQueueRequest,
+  callNextQueueEntryRequest,
+  callQueueEntryRequest,
+  cancelQueueEntryRequest,
+  completeQueueEntryRequest,
   createQueueRequest,
+  getQueueBundleRequest,
+  markQueueEntryNoShowRequest,
+  seatQueueEntryRequest,
+  skipQueueEntryRequest,
+  updateQueueRequest,
+  updateQueueStatusRequest,
 } from "@/lib/api/queues-client";
 import { ConfirmDialog } from "@/components/common/ConfirmDialog";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -98,7 +96,8 @@ export function QueueBoard({
   canConfigure,
 }: QueueBoardProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const pending = busyKey !== null;
   const [bundle, setBundle] = useState(initialBundle);
   const bundleRef = useRef(bundle);
   const [view, setView] = useState<"live" | "history">("live");
@@ -121,10 +120,10 @@ export function QueueBoard({
 
   const loadBundle = useCallback(async () => {
     const current = bundleRef.current;
-    const result = await getQueueBundleAction({
-      branchId: current.branch.id,
-      queueId: current.queue?.id ?? null,
-    });
+    const result = await getQueueBundleRequest(
+      current.branch.id,
+      current.queue?.id ?? null,
+    );
     if (result.ok && result.data) {
       setBundle(result.data);
     }
@@ -195,11 +194,16 @@ export function QueueBoard({
   const accepting = queue?.status === "ACTIVE" && bundle.defaults.queueEnabled;
   const now = new Date();
 
-  function run(task: () => Promise<void>) {
-    if (pending) return;
-    startTransition(() => {
-      void task();
+  function run(key: string, task: () => Promise<void>) {
+    if (busyKey) return;
+    setBusyKey(key);
+    void task().finally(() => {
+      setBusyKey(null);
     });
+  }
+
+  function isBusy(...keys: string[]) {
+    return busyKey !== null && keys.includes(busyKey);
   }
 
   function refresh() {
@@ -230,7 +234,7 @@ export function QueueBoard({
 
   async function handleUpdate(values: QueueFormValues) {
     if (!queue) return;
-    const result = await updateQueueAction({
+    const result = await updateQueueRequest({
       ...values,
       queueId: queue.id,
     });
@@ -245,7 +249,7 @@ export function QueueBoard({
 
   async function handleStatus(status: "ACTIVE" | "PAUSED" | "CLOSED") {
     if (!queue) return;
-    const result = await updateQueueStatusAction({
+    const result = await updateQueueStatusRequest({
       queueId: queue.id,
       status,
     });
@@ -295,7 +299,7 @@ export function QueueBoard({
 
   async function handleCallNext() {
     if (!queue) return;
-    const result = await callNextQueueEntryAction({ queueId: queue.id });
+    const result = await callNextQueueEntryRequest(queue.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to call next.");
       return;
@@ -305,7 +309,7 @@ export function QueueBoard({
   }
 
   async function handleCall(entry: QueueEntryView) {
-    const result = await callQueueEntryAction({ entryId: entry.id });
+    const result = await callQueueEntryRequest(entry.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to call this customer.");
       return;
@@ -316,7 +320,7 @@ export function QueueBoard({
   }
 
   async function handleSkip(entry: QueueEntryView) {
-    const result = await skipQueueEntryAction({ entryId: entry.id });
+    const result = await skipQueueEntryRequest(entry.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to skip this customer.");
       return;
@@ -328,7 +332,7 @@ export function QueueBoard({
   }
 
   async function handleCancel(entry: QueueEntryView) {
-    const result = await cancelQueueEntryAction({ entryId: entry.id });
+    const result = await cancelQueueEntryRequest(entry.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to cancel this customer.");
       return;
@@ -340,7 +344,7 @@ export function QueueBoard({
   }
 
   async function handleNoShow(entry: QueueEntryView) {
-    const result = await markQueueEntryNoShowAction({ entryId: entry.id });
+    const result = await markQueueEntryNoShowRequest(entry.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to mark no-show.");
       return;
@@ -353,10 +357,7 @@ export function QueueBoard({
 
   async function handleSeat(tableId: string) {
     if (!activeSeatEntry) return;
-    const result = await seatQueueEntryAction({
-      entryId: activeSeatEntry.id,
-      tableId,
-    });
+    const result = await seatQueueEntryRequest(activeSeatEntry.id, tableId);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to seat this customer.");
       return;
@@ -374,7 +375,7 @@ export function QueueBoard({
   }
 
   async function handleComplete(entry: QueueEntryView) {
-    const result = await completeQueueEntryAction({ entryId: entry.id });
+    const result = await completeQueueEntryRequest(entry.id);
     if (!result.ok) {
       toast.error(result.message ?? "Unable to complete this visit.");
       return;
@@ -408,16 +409,26 @@ export function QueueBoard({
             disabled={pending}
             onClick={() => refresh()}
             aria-label="Refresh queue"
+            aria-busy={isBusy("refresh")}
           >
-            <RefreshCw />
+            {isBusy("refresh") ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <RefreshCw />
+            )}
           </Button>
           <Button
             variant="outline"
             className="hidden sm:inline-flex"
             disabled={pending}
             onClick={() => refresh()}
+            aria-busy={isBusy("refresh")}
           >
-            <RefreshCw />
+            {isBusy("refresh") ? (
+              <Loader2 className="animate-spin" />
+            ) : (
+              <RefreshCw />
+            )}
             Refresh
           </Button>
           {canConfigure ? (
@@ -483,10 +494,15 @@ export function QueueBoard({
               variant="secondary"
               className="col-span-2 sm:col-auto"
               disabled={pending}
-              onClick={() => run(handleCallNext)}
+              onClick={() => run("call-next", handleCallNext)}
+              aria-busy={isBusy("call-next")}
             >
-              <Megaphone />
-              Call next
+              {isBusy("call-next") ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Megaphone />
+              )}
+              {isBusy("call-next") ? "Calling…" : "Call next"}
             </Button>
           ) : null}
           {queue.status === "ACTIVE" ? (
@@ -503,10 +519,15 @@ export function QueueBoard({
             <Button
               variant="outline"
               disabled={pending}
-              onClick={() => run(() => handleStatus("ACTIVE"))}
+              onClick={() => run("status", () => handleStatus("ACTIVE"))}
+              aria-busy={isBusy("status")}
             >
-              <Play />
-              Resume
+              {isBusy("status") ? (
+                <Loader2 className="animate-spin" />
+              ) : (
+                <Play />
+              )}
+              {isBusy("status") ? "Resuming…" : "Resume"}
             </Button>
           ) : null}
           {queue.status !== "CLOSED" ? (
@@ -717,11 +738,20 @@ export function QueueBoard({
                                   size="sm"
                                   disabled={pending}
                                   onClick={() =>
-                                    run(() => handleComplete(entry))
+                                    run(`complete:${entry.id}`, () =>
+                                      handleComplete(entry),
+                                    )
                                   }
+                                  aria-busy={isBusy(`complete:${entry.id}`)}
                                 >
-                                  <CheckCircle2 />
-                                  Complete
+                                  {isBusy(`complete:${entry.id}`) ? (
+                                    <Loader2 className="animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 />
+                                  )}
+                                  {isBusy(`complete:${entry.id}`)
+                                    ? "Completing…"
+                                    : "Complete"}
                                 </Button>
                               ) : null}
                               {actions.canNoShow ? (
@@ -773,13 +803,26 @@ export function QueueBoard({
                         timeFormat={bundle.timeFormat}
                         canManage={canManage}
                         pending={pending}
+                        loadingAction={
+                          busyKey === `call:${entry.id}`
+                            ? "call"
+                            : busyKey === `complete:${entry.id}`
+                              ? "complete"
+                              : null
+                        }
                         onOpen={() => setDetails(entry)}
-                        onCall={() => run(() => handleCall(entry))}
+                        onCall={() =>
+                          run(`call:${entry.id}`, () => handleCall(entry))
+                        }
                         onSkip={() => setConfirm({ kind: "skip", entry })}
                         onCancel={() => setConfirm({ kind: "cancel", entry })}
                         onSeat={() => setSeatEntry(entry)}
                         onNoShow={() => setConfirm({ kind: "noShow", entry })}
-                        onComplete={() => run(() => handleComplete(entry))}
+                        onComplete={() =>
+                          run(`complete:${entry.id}`, () =>
+                            handleComplete(entry),
+                          )
+                        }
                       />
                     ))}
                   </div>
@@ -801,7 +844,7 @@ export function QueueBoard({
         mode="create"
         defaults={bundle.defaults}
         pending={pending}
-        onSubmit={(values) => run(() => handleCreate(values))}
+        onSubmit={(values) => run("create", () => handleCreate(values))}
       />
       <QueueFormDialog
         open={settingsOpen}
@@ -810,30 +853,40 @@ export function QueueBoard({
         queue={queue}
         defaults={bundle.defaults}
         pending={pending}
-        onSubmit={(values) => run(() => handleUpdate(values))}
+        onSubmit={(values) => run("update", () => handleUpdate(values))}
       />
       <SeatCustomerDialog
         open={Boolean(activeSeatEntry)}
         onOpenChange={(open) => {
-          if (!open) setSeatEntry(null);
+          if (!open && !pending) setSeatEntry(null);
         }}
         entry={activeSeatEntry}
         tables={bundle.tables}
         pending={pending}
-        onSeat={(tableId) => run(() => handleSeat(tableId))}
+        onSeat={(tableId) => run("seat", () => handleSeat(tableId))}
       />
       <QueueEntryDetails
         entry={activeDetails}
         open={Boolean(activeDetails)}
         onOpenChange={(open) => {
-          if (!open) setDetails(null);
+          if (!open && !pending) setDetails(null);
         }}
         timezone={bundle.timezone}
         dateFormat={bundle.dateFormat}
         timeFormat={bundle.timeFormat}
         canManage={canManage}
         pending={pending}
-        onCall={() => activeDetails && run(() => handleCall(activeDetails))}
+        loadingAction={
+          activeDetails && busyKey === `call:${activeDetails.id}`
+            ? "call"
+            : activeDetails && busyKey === `complete:${activeDetails.id}`
+              ? "complete"
+              : null
+        }
+        onCall={() =>
+          activeDetails &&
+          run(`call:${activeDetails.id}`, () => handleCall(activeDetails))
+        }
         onSkip={() =>
           activeDetails && setConfirm({ kind: "skip", entry: activeDetails })
         }
@@ -845,13 +898,16 @@ export function QueueBoard({
           activeDetails && setConfirm({ kind: "noShow", entry: activeDetails })
         }
         onComplete={() =>
-          activeDetails && run(() => handleComplete(activeDetails))
+          activeDetails &&
+          run(`complete:${activeDetails.id}`, () =>
+            handleComplete(activeDetails),
+          )
         }
       />
       <ConfirmDialog
         open={confirm.kind !== null}
         onOpenChange={(open) => {
-          if (!open) setConfirm({ kind: null });
+          if (!open && !pending) setConfirm({ kind: null });
         }}
         title={
           confirm.kind === "pause"
@@ -890,24 +946,24 @@ export function QueueBoard({
         loading={pending}
         onConfirm={() => {
           if (confirm.kind === "pause") {
-            run(() => handleStatus("PAUSED"));
+            run("confirm", () => handleStatus("PAUSED"));
             return;
           }
           if (confirm.kind === "close") {
-            run(() => handleStatus("CLOSED"));
+            run("confirm", () => handleStatus("CLOSED"));
             return;
           }
           if (!confirm.entry) return;
           if (confirm.kind === "skip") {
-            run(() => handleSkip(confirm.entry!));
+            run("confirm", () => handleSkip(confirm.entry!));
             return;
           }
           if (confirm.kind === "cancel") {
-            run(() => handleCancel(confirm.entry!));
+            run("confirm", () => handleCancel(confirm.entry!));
             return;
           }
           if (confirm.kind === "noShow") {
-            run(() => handleNoShow(confirm.entry!));
+            run("confirm", () => handleNoShow(confirm.entry!));
           }
         }}
       />

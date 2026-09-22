@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { Loader2 } from "lucide-react";
 import {
   QUEUE_STATUSES,
   QUEUE_STATUS_LABELS,
@@ -217,7 +218,10 @@ function QueueFormFields({
           >
             Cancel
           </Button>
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} aria-busy={pending}>
+            {pending ? (
+              <Loader2 className="animate-spin" data-icon="inline-start" />
+            ) : null}
             {pending
               ? "Saving…"
               : mode === "create"

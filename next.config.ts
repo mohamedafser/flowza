@@ -12,6 +12,7 @@ const withPWA = withPWAInit({
   workboxOptions: {
     skipWaiting: true,
     clientsClaim: true,
+    importScripts: ["/sw-push.js"],
     runtimeCaching: [
       {
         urlPattern: ({ request, url }: { request: Request; url: URL }) =>

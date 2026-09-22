@@ -11,13 +11,19 @@ export function jsonOk<T>(
   return NextResponse.json({ ok: true, data }, { status, headers: NO_STORE });
 }
 
-export function jsonFail(
+export function jsonFail<T = never>(
   code: ActionErrorCode,
   message: string,
   status: number,
-): NextResponse<ActionResult<never>> {
+  data?: T,
+): NextResponse<ActionResult<T>> {
   return NextResponse.json(
-    { ok: false, code, message },
+    {
+      ok: false,
+      code,
+      message,
+      ...(data !== undefined ? { data } : {}),
+    },
     { status, headers: NO_STORE },
   );
 }

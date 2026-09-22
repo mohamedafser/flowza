@@ -68,9 +68,11 @@ describe("reservation notification templates", () => {
       tableName: "12",
     });
 
-    expect(rendered.subject).toContain("RES-1001");
+    expect(rendered.subject).toContain("Flowza Bistro");
     expect(rendered.body).toContain("confirmed");
     expect(rendered.body).toContain("Alex");
+    expect(rendered.body).toContain("RES-1001");
+    expect(rendered.html).toContain("RES-1001");
   });
 
   it("renders staff reservation no-show template", () => {

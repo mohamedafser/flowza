@@ -9,6 +9,7 @@ import {
   LayoutGrid,
   ListOrdered,
   Settings2,
+  ShieldCheck,
   UserRound,
   Users,
 } from "lucide-react";
@@ -17,17 +18,21 @@ import {
   SETTINGS_CUSTOMER_PATH,
   SETTINGS_GENERAL_PATH,
   SETTINGS_HOURS_PATH,
+  SETTINGS_MEMBERS_PATH,
   SETTINGS_NOTIFICATIONS_PATH,
   SETTINGS_PATH,
   SETTINGS_QUEUE_PATH,
   SETTINGS_TABLES_PATH,
 } from "@/lib/auth/paths";
+import { filterNavByRole } from "@/lib/auth/navigation";
+import type { MemberRole } from "@/lib/auth/roles";
 import { cn } from "@/lib/utils";
 
 const SETTINGS_NAV = [
   { title: "Account", href: SETTINGS_PATH, icon: UserRound },
   { title: "General", href: SETTINGS_GENERAL_PATH, icon: Settings2 },
   { title: "Branches", href: SETTINGS_BRANCHES_PATH, icon: Building2 },
+  { title: "Staff & Roles", href: SETTINGS_MEMBERS_PATH, icon: ShieldCheck },
   { title: "Operating Hours", href: SETTINGS_HOURS_PATH, icon: Clock3 },
   { title: "Table Sections", href: SETTINGS_TABLES_PATH, icon: LayoutGrid },
   { title: "Queue Settings", href: SETTINGS_QUEUE_PATH, icon: ListOrdered },
@@ -43,8 +48,14 @@ const SETTINGS_NAV = [
   },
 ] as const;
 
-export function SettingsNav() {
+type SettingsNavProps = {
+  /** Omitted while the workspace is still loading — nothing is hidden then. */
+  role?: MemberRole | null;
+};
+
+export function SettingsNav({ role }: SettingsNavProps = {}) {
   const pathname = usePathname();
+  const items = filterNavByRole(SETTINGS_NAV, role);
 
   return (
     <nav
@@ -52,7 +63,7 @@ export function SettingsNav() {
       className="lg:sticky lg:top-20 lg:w-52 lg:shrink-0"
     >
       <ul className="flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible lg:pb-0">
-        {SETTINGS_NAV.map((item) => {
+        {items.map((item) => {
           const Icon = item.icon;
           const active =
             item.href === SETTINGS_PATH

@@ -10,6 +10,7 @@ import {
   SETTINGS_CUSTOMER_PATH,
   SETTINGS_GENERAL_PATH,
   SETTINGS_HOURS_PATH,
+  SETTINGS_MEMBERS_PATH,
   SETTINGS_NOTIFICATIONS_PATH,
   SETTINGS_PATH,
   SETTINGS_QUEUE_PATH,
@@ -74,6 +75,11 @@ export const SETTINGS_TABLES_BREADCRUMBS = settingsBreadcrumbs({
 export const SETTINGS_BRANCHES_BREADCRUMBS = settingsBreadcrumbs({
   label: "Branches",
   href: SETTINGS_BRANCHES_PATH,
+});
+
+export const SETTINGS_MEMBERS_BREADCRUMBS = settingsBreadcrumbs({
+  label: "Staff & roles",
+  href: SETTINGS_MEMBERS_PATH,
 });
 
 export function settingsBranchDetailBreadcrumbs(

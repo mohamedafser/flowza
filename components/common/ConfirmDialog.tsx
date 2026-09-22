@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 type ConfirmDialogProps = {
   open: boolean;
@@ -34,7 +35,13 @@ export function ConfirmDialog({
   loading = false,
 }: ConfirmDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (loading && !next) return;
+        onOpenChange(next);
+      }}
+    >
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -54,8 +61,12 @@ export function ConfirmDialog({
             variant={destructive ? "destructive" : "default"}
             onClick={onConfirm}
             disabled={loading}
+            aria-busy={loading}
           >
-            {confirmLabel}
+            {loading ? (
+              <Loader2 className="animate-spin" data-icon="inline-start" />
+            ) : null}
+            {loading ? "Working…" : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

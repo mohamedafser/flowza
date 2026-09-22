@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/common/EmptyState";
+import { Loader2 } from "lucide-react";
 import { tableDisplayName } from "@/lib/utils/tables";
 import { suitableTablesForParty } from "@/lib/utils/queue";
 import type { RestaurantTableRecord } from "@/lib/utils/tables";
@@ -97,11 +98,15 @@ export function SeatCustomerDialog({
           <Button
             type="button"
             disabled={pending || !tableId || suitable.length === 0}
+            aria-busy={pending}
             onClick={() => {
               if (!tableId || pending) return;
               void onSeat(tableId);
             }}
           >
+            {pending ? (
+              <Loader2 className="animate-spin" data-icon="inline-start" />
+            ) : null}
             {pending ? "Seating…" : "Seat customer"}
           </Button>
         </DialogFooter>

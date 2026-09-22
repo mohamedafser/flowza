@@ -1,4 +1,6 @@
 import { buildIdempotencyKey } from "@/lib/notifications/constants";
+import { logNotificationEvent } from "@/lib/notifications/log";
+import { isWebPushConfigured } from "@/lib/notifications/push/config";
 import {
   scheduleNotificationWork,
   sendNotification,
@@ -33,48 +35,132 @@ export type QueueNotificationContext = {
 async function loadQueueNotificationContext(
   entryId: string,
 ): Promise<QueueNotificationContext | null> {
+  const userClient = await createClient();
+  const {
+    data: { user },
+  } = await userClient.auth.getUser();
   const admin = createServiceRoleClient();
-  const client = admin ?? (await createClient());
 
-  const { data: entry, error } = await client
-    .from("queue_entries")
-    .select(
-      "id, queue_id, customer_id, table_id, token, business_date, party_size, status, joined_at, called_at, seated_at, completed_at, cancelled_at, skipped_at, no_show_at, created_at, updated_at",
-    )
-    .eq("id", entryId)
-    .maybeSingle();
+  // Prefer the signed-in member client (has table grants). Service role is
+  // used for anonymous public-queue joins when grants are available.
+  const clients = user
+    ? admin
+      ? [userClient, admin]
+      : [userClient]
+    : admin
+      ? [admin, userClient]
+      : [userClient];
 
-  if (error || !entry) {
+  let entry: {
+    id: string;
+    queue_id: string;
+    customer_id: string | null;
+    table_id: string | null;
+    token: string;
+    business_date: string;
+    party_size: number;
+    status: QueueEntryRecord["status"];
+    joined_at: string;
+    called_at: string | null;
+    seated_at: string | null;
+    completed_at: string | null;
+    cancelled_at: string | null;
+    skipped_at: string | null;
+    no_show_at: string | null;
+    created_at: string;
+    updated_at: string;
+  } | null = null;
+  let client = clients[0]!;
+
+  for (const candidate of clients) {
+    const { data, error } = await candidate
+      .from("queue_entries")
+      .select(
+        "id, queue_id, customer_id, table_id, token, business_date, party_size, status, joined_at, called_at, seated_at, completed_at, cancelled_at, skipped_at, no_show_at, created_at, updated_at",
+      )
+      .eq("id", entryId)
+      .maybeSingle();
+
+    if (error) {
+      logNotificationEvent("context_load_error", {
+        queueEntryId: entryId,
+        result: "failed",
+        errorCode: "UNKNOWN",
+      });
+      console.error(
+        JSON.stringify({
+          scope: "notifications",
+          message: "context_load_error",
+          queueEntryId: entryId,
+          error: error.message,
+          code: error.code,
+        }),
+      );
+      continue;
+    }
+
+    if (data) {
+      entry = data;
+      client = candidate;
+      break;
+    }
+  }
+
+  if (!entry) {
     return null;
   }
 
-  const { data: queue } = await client
+  const { data: queue, error: queueError } = await client
     .from("queues")
     .select("id, name, branch_id")
     .eq("id", entry.queue_id)
     .maybeSingle();
 
-  if (!queue) {
+  if (queueError || !queue) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "context_queue_missing",
+        queueEntryId: entryId,
+        error: queueError?.message ?? "not_found",
+      }),
+    );
     return null;
   }
 
-  const { data: branch } = await client
+  const { data: branch, error: branchError } = await client
     .from("branches")
     .select("id, name, restaurant_id")
     .eq("id", queue.branch_id)
     .maybeSingle();
 
-  if (!branch) {
+  if (branchError || !branch) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "context_branch_missing",
+        queueEntryId: entryId,
+        error: branchError?.message ?? "not_found",
+      }),
+    );
     return null;
   }
 
-  const { data: restaurant } = await client
+  const { data: restaurant, error: restaurantError } = await client
     .from("restaurants")
     .select("id, name")
     .eq("id", branch.restaurant_id)
     .maybeSingle();
 
-  if (!restaurant) {
+  if (restaurantError || !restaurant) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "context_restaurant_missing",
+        queueEntryId: entryId,
+        error: restaurantError?.message ?? "not_found",
+      }),
+    );
     return null;
   }
 
@@ -169,14 +255,19 @@ function customerChannels(
   if (!customer) return [];
   const channels: Array<{ channel: NotificationChannel; recipient: string }> =
     [];
-  if (customer.email) {
-    channels.push({ channel: "EMAIL", recipient: customer.email });
+  const email = customer.email?.trim() || "";
+  const phone = customer.phone?.trim() || "";
+  if (email) {
+    channels.push({ channel: "EMAIL", recipient: email });
   }
-  if (customer.phone) {
-    channels.push({ channel: "WHATSAPP", recipient: customer.phone });
-    channels.push({ channel: "SMS", recipient: customer.phone });
+  if (phone) {
+    channels.push({ channel: "WHATSAPP", recipient: phone });
+    channels.push({ channel: "SMS", recipient: phone });
   }
   channels.push({ channel: "IN_APP", recipient: customer.id });
+  if (isWebPushConfigured()) {
+    channels.push({ channel: "PUSH", recipient: customer.id });
+  }
   return channels;
 }
 
@@ -195,31 +286,54 @@ async function dispatchCustomerEvent(
   const data = templateFromContext(ctx);
   const channels = customerChannels(ctx.customer);
 
-  for (const { channel, recipient } of channels) {
-    await sendNotification({
+  if (!ctx.customer) {
+    logNotificationEvent("missing_customer", {
       restaurantId: ctx.restaurantId,
-      customerId: ctx.customer?.id ?? null,
       queueEntryId: ctx.entry.id,
-      branchId: ctx.branchId,
       type,
-      channel,
-      audience: "CUSTOMER",
-      idempotencyKey: buildIdempotencyKey({
-        queueEntryId: ctx.entry.id,
-        type,
-        channel,
-        eventVersion,
-      }),
-      recipient,
-      data,
+      result: "skipped",
+      errorCode: "MISSING_CONTACT",
+    });
+  } else if (!channels.some((c) => c.channel === "EMAIL")) {
+    logNotificationEvent("missing_email", {
+      restaurantId: ctx.restaurantId,
+      queueEntryId: ctx.entry.id,
+      type,
+      channel: "EMAIL",
+      result: "skipped",
+      errorCode: "MISSING_CONTACT",
     });
   }
+
+  await Promise.all(
+    channels.map(({ channel, recipient }) =>
+      sendNotification({
+        restaurantId: ctx.restaurantId,
+        customerId: ctx.customer?.id ?? null,
+        queueEntryId: ctx.entry.id,
+        branchId: ctx.branchId,
+        type,
+        channel,
+        audience: "CUSTOMER",
+        idempotencyKey: buildIdempotencyKey({
+          queueEntryId: ctx.entry.id,
+          type,
+          channel,
+          eventVersion,
+        }),
+        recipient,
+        data,
+      }),
+    ),
+  );
 }
 
 async function dispatchStaffEvent(
   ctx: QueueNotificationContext,
   type:
     | "STAFF_QUEUE_JOINED"
+    | "STAFF_QUEUE_CALLED"
+    | "STAFF_QUEUE_SEATED"
     | "STAFF_QUEUE_CANCELLED"
     | "STAFF_QUEUE_NO_SHOW"
     | "STAFF_QUEUE_BUSY",
@@ -227,41 +341,74 @@ async function dispatchStaffEvent(
   dataOverrides?: Partial<QueueNotificationTemplateData>,
 ): Promise<void> {
   const data = { ...templateFromContext(ctx), ...dataOverrides };
-  await sendNotification({
-    restaurantId: ctx.restaurantId,
-    customerId: ctx.customer?.id ?? null,
-    queueEntryId: ctx.entry.id,
-    branchId: ctx.branchId,
-    type,
-    channel: "IN_APP",
-    audience: "STAFF",
-    idempotencyKey: buildIdempotencyKey({
+  const staffJobs = [
+    sendNotification({
+      restaurantId: ctx.restaurantId,
+      customerId: ctx.customer?.id ?? null,
       queueEntryId: ctx.entry.id,
+      branchId: ctx.branchId,
       type,
-      channel: "IN_APP",
-      eventVersion,
+      channel: "IN_APP" as const,
+      audience: "STAFF" as const,
+      idempotencyKey: buildIdempotencyKey({
+        queueEntryId: ctx.entry.id,
+        type,
+        channel: "IN_APP",
+        eventVersion,
+      }),
+      recipient: `restaurant:${ctx.restaurantId}`,
+      data,
     }),
-    recipient: `restaurant:${ctx.restaurantId}`,
-    data,
-  });
+  ];
+  if (isWebPushConfigured()) {
+    staffJobs.push(
+      sendNotification({
+        restaurantId: ctx.restaurantId,
+        customerId: ctx.customer?.id ?? null,
+        queueEntryId: ctx.entry.id,
+        branchId: ctx.branchId,
+        type,
+        channel: "PUSH",
+        audience: "STAFF",
+        idempotencyKey: buildIdempotencyKey({
+          queueEntryId: ctx.entry.id,
+          type,
+          channel: "PUSH",
+          eventVersion,
+        }),
+        recipient: `restaurant:${ctx.restaurantId}`,
+        data,
+      }),
+    );
+  }
+  await Promise.all(staffJobs);
 }
 
 /**
- * Fire-and-forget queue notification orchestration.
- * Safe to call after successful queue mutations; never throws to callers.
+ * Queue notification orchestration.
+ * Prefer awaiting these from server mutations so SMTP delivery completes
+ * before the request ends. scheduleNotificationWork is a safe fallback.
  */
-export function notifyQueueJoined(entryId: string): void {
-  scheduleNotificationWork(async () => {
+export async function notifyQueueJoined(entryId: string): Promise<void> {
+  try {
     const ctx = await loadQueueNotificationContext(entryId);
-    if (!ctx) return;
+    if (!ctx) {
+      logNotificationEvent("context_missing", {
+        queueEntryId: entryId,
+        type: "QUEUE_JOINED",
+        result: "skipped",
+        errorCode: "UNKNOWN",
+      });
+      return;
+    }
 
     const version = ctx.entry.joined_at;
     await dispatchCustomerEvent(ctx, "QUEUE_JOINED", version);
     await dispatchStaffEvent(ctx, "STAFF_QUEUE_JOINED", version);
 
-    const { data: settings } = await (
-      createServiceRoleClient() ?? (await createClient())
-    )
+    const admin = createServiceRoleClient();
+    const client = admin ?? (await createClient());
+    const { data: settings } = await client
       .from("restaurant_settings")
       .select("notify_staff_queue_busy_threshold")
       .eq("restaurant_id", ctx.restaurantId)
@@ -280,43 +427,127 @@ export function notifyQueueJoined(entryId: string): void {
         { position: ctx.waitingCount },
       );
     }
-  });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "notify_queue_joined_failed",
+        queueEntryId: entryId,
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+  }
 }
 
-export function notifyQueueCalled(entryId: string): void {
-  scheduleNotificationWork(async () => {
+export async function notifyQueueCalled(entryId: string): Promise<void> {
+  try {
     const ctx = await loadQueueNotificationContext(entryId);
-    if (!ctx) return;
+    if (!ctx) {
+      logNotificationEvent("context_missing", {
+        queueEntryId: entryId,
+        type: "QUEUE_CALLED",
+        result: "skipped",
+        errorCode: "UNKNOWN",
+      });
+      return;
+    }
     const version = ctx.entry.called_at ?? ctx.entry.updated_at;
     await dispatchCustomerEvent(ctx, "QUEUE_CALLED", version);
-  });
+    await dispatchStaffEvent(ctx, "STAFF_QUEUE_CALLED", version);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "notify_queue_called_failed",
+        queueEntryId: entryId,
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+  }
 }
 
-export function notifyQueueCancelled(entryId: string): void {
-  scheduleNotificationWork(async () => {
+export async function notifyQueueCancelled(entryId: string): Promise<void> {
+  try {
     const ctx = await loadQueueNotificationContext(entryId);
     if (!ctx) return;
     const version = ctx.entry.cancelled_at ?? ctx.entry.updated_at;
     await dispatchCustomerEvent(ctx, "QUEUE_CANCELLED", version);
     await dispatchStaffEvent(ctx, "STAFF_QUEUE_CANCELLED", version);
-  });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "notify_queue_cancelled_failed",
+        queueEntryId: entryId,
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+  }
 }
 
-export function notifyQueueNoShow(entryId: string): void {
-  scheduleNotificationWork(async () => {
+export async function notifyQueueNoShow(entryId: string): Promise<void> {
+  try {
     const ctx = await loadQueueNotificationContext(entryId);
     if (!ctx) return;
     const version = ctx.entry.no_show_at ?? ctx.entry.updated_at;
     await dispatchCustomerEvent(ctx, "QUEUE_NO_SHOW", version);
     await dispatchStaffEvent(ctx, "STAFF_QUEUE_NO_SHOW", version);
-  });
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "notify_queue_no_show_failed",
+        queueEntryId: entryId,
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+  }
 }
 
-export function notifyQueueSeated(entryId: string): void {
-  scheduleNotificationWork(async () => {
+export async function notifyQueueSeated(entryId: string): Promise<void> {
+  try {
     const ctx = await loadQueueNotificationContext(entryId);
-    if (!ctx) return;
+    if (!ctx) {
+      logNotificationEvent("context_missing", {
+        queueEntryId: entryId,
+        type: "QUEUE_SEATED",
+        result: "skipped",
+        errorCode: "UNKNOWN",
+      });
+      return;
+    }
     const version = ctx.entry.seated_at ?? ctx.entry.updated_at;
     await dispatchCustomerEvent(ctx, "QUEUE_SEATED", version);
-  });
+    await dispatchStaffEvent(ctx, "STAFF_QUEUE_SEATED", version);
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        scope: "notifications",
+        message: "notify_queue_seated_failed",
+        queueEntryId: entryId,
+        error: error instanceof Error ? error.message : "unknown",
+      }),
+    );
+  }
+}
+
+/** Background-safe wrappers for callers that cannot await. */
+export function notifyQueueJoinedDeferred(entryId: string): void {
+  scheduleNotificationWork(() => notifyQueueJoined(entryId));
+}
+
+export function notifyQueueCalledDeferred(entryId: string): void {
+  scheduleNotificationWork(() => notifyQueueCalled(entryId));
+}
+
+export function notifyQueueCancelledDeferred(entryId: string): void {
+  scheduleNotificationWork(() => notifyQueueCancelled(entryId));
+}
+
+export function notifyQueueNoShowDeferred(entryId: string): void {
+  scheduleNotificationWork(() => notifyQueueNoShow(entryId));
+}
+
+export function notifyQueueSeatedDeferred(entryId: string): void {
+  scheduleNotificationWork(() => notifyQueueSeated(entryId));
 }

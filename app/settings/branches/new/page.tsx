@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { AccessDenied } from "@/components/common/AccessDenied";
 import { PageHeader } from "@/components/common/PageHeader";
 import { BranchForm } from "@/components/restaurant/BranchForm";
 import { Button } from "@/components/ui/button";
 import { requireWorkspacePage } from "@/lib/context/workspace";
+import { canAccessHref } from "@/lib/auth/navigation";
 import { SETTINGS_BRANCHES_PATH } from "@/lib/auth/paths";
 import { settingsNewBranchBreadcrumbs } from "@/lib/navigation/breadcrumbs";
 
@@ -15,8 +16,15 @@ export const metadata: Metadata = {
 export default async function NewBranchPage() {
   const workspace = await requireWorkspacePage();
 
-  if (!workspace.canManageRestaurant) {
-    notFound();
+  if (!canAccessHref(workspace.role, SETTINGS_BRANCHES_PATH)) {
+    return (
+      <AccessDenied
+        title="Create branch"
+        description="Add a new location under your restaurant."
+        message="Only owners and admins can manage branches."
+        breadcrumbs={settingsNewBranchBreadcrumbs()}
+      />
+    );
   }
 
   return (

@@ -19,6 +19,8 @@ export type RestaurantWorkspace = {
   memberships: MembershipWithRestaurant[];
   membership: MembershipWithRestaurant | null;
   restaurant: Restaurant | null;
+  organizationId: string | null;
+  organization: AuthContext["organization"];
   role: MemberRole | null;
   canManageRestaurant: boolean;
   branches: Branch[];
@@ -90,6 +92,8 @@ export function buildWorkspace(
     memberships: auth.memberships,
     membership: auth.membership,
     restaurant: auth.restaurant,
+    organizationId: auth.organizationId,
+    organization: auth.organization,
     role,
     canManageRestaurant,
     branches,

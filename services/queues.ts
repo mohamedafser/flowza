@@ -40,6 +40,7 @@ import type {
   UpdateQueueInput,
   UpdateQueueStatusInput,
 } from "@/lib/validations/queue";
+import { scheduleNotificationWork } from "@/lib/notifications/service";
 import { findPotentialDuplicateCustomer } from "@/services/customers";
 import { writeAuditLog } from "@/services/audit";
 import type { Branch } from "@/lib/context/restaurant";
@@ -135,11 +136,25 @@ type QueueEntryRowWithJoins = QueueEntryRow & {
 };
 
 const ENTRY_SELECT =
-  "*, customer:customers(id, name), table:restaurant_tables(id, table_number, name, capacity, status, branch_id)";
+  "id, queue_id, customer_id, table_id, token, business_date, party_size, status, joined_at, called_at, seated_at, completed_at, cancelled_at, skipped_at, no_show_at, created_at, updated_at, customer:customers(id, name), table:restaurant_tables(id, table_number, name, capacity, status, branch_id)";
+
+const QUEUE_SELECT =
+  "id, organization_id, branch_id, name, status, prefix, current_number, starting_number, estimated_service_minutes, created_at, updated_at";
+
+const TABLE_SELECT =
+  "id, branch_id, section_id, table_number, name, capacity, status, sort_order";
+
+const SETTINGS_SELECT =
+  "default_queue_name, token_prefix, starting_token_number, default_service_minutes, max_queue_capacity, queue_enabled, allow_walk_ins, allow_manual_entry, date_format, time_format";
+
+const BRANCH_SELECT =
+  "id, organization_id, restaurant_id, name, slug, timezone, use_restaurant_timezone, is_active";
+
 
 function asQueue(row: QueueRow): QueueRecord {
   return {
     id: row.id,
+    organization_id: row.organization_id,
     branch_id: row.branch_id,
     name: row.name,
     status: row.status,
@@ -305,7 +320,7 @@ async function loadAuthorizedBranch(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("branches")
-    .select("*")
+    .select(BRANCH_SELECT)
     .eq("id", branchId)
     .maybeSingle();
 
@@ -314,7 +329,40 @@ async function loadAuthorizedBranch(
   }
 
   const context = await requirePermission(data.restaurant_id, permission);
-  return { branch: data, context };
+  return { branch: data as unknown as Branch, context };
+}
+
+function scheduleQueueNotification(
+  kind: "joined" | "called" | "cancelled" | "no_show" | "seated",
+  entryId: string,
+): void {
+  scheduleNotificationWork(async () => {
+    const {
+      notifyQueueJoined,
+      notifyQueueCalled,
+      notifyQueueCancelled,
+      notifyQueueNoShow,
+      notifyQueueSeated,
+    } = await import("@/lib/notifications/queue");
+
+    switch (kind) {
+      case "joined":
+        await notifyQueueJoined(entryId);
+        return;
+      case "called":
+        await notifyQueueCalled(entryId);
+        return;
+      case "cancelled":
+        await notifyQueueCancelled(entryId);
+        return;
+      case "no_show":
+        await notifyQueueNoShow(entryId);
+        return;
+      case "seated":
+        await notifyQueueSeated(entryId);
+        return;
+    }
+  });
 }
 
 async function loadAuthorizedQueue(
@@ -324,7 +372,7 @@ async function loadAuthorizedQueue(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("queues")
-    .select("*")
+    .select(QUEUE_SELECT)
     .eq("id", queueId)
     .maybeSingle();
 
@@ -333,12 +381,24 @@ async function loadAuthorizedQueue(
   }
 
   const authorized = await loadAuthorizedBranch(data.branch_id, permission);
+  const organizationId =
+    authorized.context.organizationId ??
+    authorized.branch.organization_id ??
+    data.organization_id;
+
+  if (data.organization_id !== organizationId) {
+    return null;
+  }
+
   const scoped = authorizeQueueScope({
     membershipRestaurantId: authorized.context.membership.restaurant_id,
     queueRestaurantId: authorized.branch.restaurant_id,
     currentRestaurantId: authorized.branch.restaurant_id,
     queueBranchId: data.branch_id,
     expectedBranchId: authorized.branch.id,
+    membershipOrganizationId: organizationId,
+    queueOrganizationId: data.organization_id,
+    currentOrganizationId: organizationId,
   });
 
   if (!scoped.ok) {
@@ -364,36 +424,53 @@ export const getQueueBundle = cache(
     });
     const businessDate = businessDateForTimezone(new Date(), timezone);
     const supabase = await createClient();
+    const knownQueueId = preferredQueueId?.trim() || null;
 
-    const [queuesResult, settingsResult, tablesResult] = await Promise.all([
-      supabase
-        .from("queues")
-        .select("*")
-        .eq("branch_id", branch.id)
-        .order("name", { ascending: true }),
-      supabase
-        .from("restaurant_settings")
-        .select("*")
-        .eq("restaurant_id", branch.restaurant_id)
-        .maybeSingle(),
-      supabase
-        .from("restaurant_tables")
-        .select("*")
-        .eq("branch_id", branch.id)
-        .order("sort_order", { ascending: true })
-        .order("table_number", { ascending: true }),
-    ]);
+    const [queuesResult, settingsResult, tablesResult, knownEntriesResult] =
+      await Promise.all([
+        supabase
+          .from("queues")
+          .select(QUEUE_SELECT)
+          .eq("branch_id", branch.id)
+          .order("name", { ascending: true }),
+        supabase
+          .from("restaurant_settings")
+          .select(SETTINGS_SELECT)
+          .eq("restaurant_id", branch.restaurant_id)
+          .maybeSingle(),
+        supabase
+          .from("restaurant_tables")
+          .select(TABLE_SELECT)
+          .eq("branch_id", branch.id)
+          .order("sort_order", { ascending: true })
+          .order("table_number", { ascending: true }),
+        knownQueueId
+          ? supabase
+              .from("queue_entries")
+              .select(ENTRY_SELECT)
+              .eq("queue_id", knownQueueId)
+              .eq("business_date", businessDate)
+              .order("joined_at", { ascending: true })
+              .order("id", { ascending: true })
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
     if (queuesResult.error) {
       throw new Error("Unable to load queues.");
     }
 
-    const queues = (queuesResult.data ?? []).map(asQueue);
+    const queues = (queuesResult.data ?? []).map((row) =>
+      asQueue(row as QueueRow),
+    );
     const queue = pickQueue(queues, preferredQueueId);
     const settings = settingsResult.data ?? null;
-    const defaults = defaultsFromSettings(settings);
+    const defaults = defaultsFromSettings(
+      settings as RestaurantSettings | null,
+    );
     const estimatedServiceMinutes = serviceMinutesForQueue(queue, defaults);
-    const tables = (tablesResult.data ?? []).map(asTable);
+    const tables = (tablesResult.data ?? []).map((row) =>
+      asTable(row as Tables<"restaurant_tables">),
+    );
     const rawDateFormat = settings?.date_format ?? "DD/MM/YYYY";
     const rawTimeFormat = settings?.time_format ?? "12h";
     const dateFormat: DateFormat = isDateFormat(rawDateFormat)
@@ -405,20 +482,25 @@ export const getQueueBundle = cache(
 
     let entries: QueueEntryView[] = [];
     if (queue) {
-      const { data, error } = await supabase
-        .from("queue_entries")
-        .select(ENTRY_SELECT)
-        .eq("queue_id", queue.id)
-        .eq("business_date", businessDate)
-        .order("joined_at", { ascending: true })
-        .order("id", { ascending: true });
+      let entryRows = knownEntriesResult.data;
+      // Prefer parallel prefetched rows only when they match the selected queue.
+      if (!knownQueueId || queue.id !== knownQueueId || knownEntriesResult.error) {
+        const { data, error } = await supabase
+          .from("queue_entries")
+          .select(ENTRY_SELECT)
+          .eq("queue_id", queue.id)
+          .eq("business_date", businessDate)
+          .order("joined_at", { ascending: true })
+          .order("id", { ascending: true });
 
-      if (error) {
-        throw new Error("Unable to load queue entries.");
+        if (error) {
+          throw new Error("Unable to load queue entries.");
+        }
+        entryRows = data;
       }
 
       entries = withEstimates(
-        (data ?? []).map((row) =>
+        (entryRows ?? []).map((row) =>
           asEntryWithRelations(row as QueueEntryRowWithJoins),
         ),
         estimatedServiceMinutes,
@@ -426,7 +508,7 @@ export const getQueueBundle = cache(
     }
 
     return {
-      branch,
+      branch: branch as Branch,
       timezone,
       businessDate,
       queues,
@@ -519,10 +601,10 @@ export async function searchQueueCustomers(
     );
   }
 
+  // Membership already loaded by requireVerifiedAuth; enforce queue.view only.
   await requirePermission(auth.restaurant.id, "queue.view");
   const supabase = await createClient();
 
-  // Empty query → 5 most recently updated customers for quick pick.
   const request = trimmed
     ? supabase
         .from("customers")
@@ -877,8 +959,7 @@ export async function addCustomerToQueue(
     },
   });
 
-  const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-  notifyQueueJoined(entry.id);
+  scheduleQueueNotification("joined", entry.id);
 
   return { ok: true, entry };
 }
@@ -910,8 +991,7 @@ export async function callNextQueueEntry(
     metadata: { queueId: loaded.queue.id, branchId: loaded.branch.id },
   });
 
-  const { notifyQueueCalled } = await import("@/lib/notifications/queue");
-  notifyQueueCalled(entry.id);
+  scheduleQueueNotification("called", entry.id);
 
   return { ok: true, entry };
 }
@@ -1004,17 +1084,13 @@ async function transitionEntry(
   });
 
   if (toStatus === "CALLED") {
-    const { notifyQueueCalled } = await import("@/lib/notifications/queue");
-    notifyQueueCalled(entry.id);
+    scheduleQueueNotification("called", entry.id);
   } else if (toStatus === "CANCELLED") {
-    const { notifyQueueCancelled } = await import("@/lib/notifications/queue");
-    notifyQueueCancelled(entry.id);
+    scheduleQueueNotification("cancelled", entry.id);
   } else if (toStatus === "NO_SHOW") {
-    const { notifyQueueNoShow } = await import("@/lib/notifications/queue");
-    notifyQueueNoShow(entry.id);
+    scheduleQueueNotification("no_show", entry.id);
   } else if (toStatus === "SEATED") {
-    const { notifyQueueSeated } = await import("@/lib/notifications/queue");
-    notifyQueueSeated(entry.id);
+    scheduleQueueNotification("seated", entry.id);
   }
 
   return { ok: true, entry };

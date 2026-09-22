@@ -3,10 +3,11 @@ import { hasPermission } from "@/lib/auth/permissions";
 import type { MemberRole } from "@/lib/auth/roles";
 
 /**
- * Multi-tenancy isolation is enforced by Phase 2 RLS helpers:
- * auth.uid() → restaurant_members → restaurant_id.
+ * Multi-tenancy isolation is enforced by PostgreSQL RLS helpers:
+ * auth.uid() → restaurant_members → restaurant.organization_id.
+ * Organization is the tenant boundary; restaurant remains the business profile.
  * This suite documents the Phase 3 authorization contract used by
- * requireRestaurantMembership / requirePermission.
+ * requireRestaurantMembership / requirePermission / requireOrganizationMembership.
  */
 type Membership = {
   restaurantId: string;
