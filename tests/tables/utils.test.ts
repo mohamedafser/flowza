@@ -13,6 +13,8 @@ import {
   groupTablesBySection,
   isDuplicateTableNumber,
   isValidTableStatusTransition,
+  cleaningAutoAvailableAt,
+  msUntilNextCleaningAutoAvailable,
   queryTables,
   reorderSectionIds,
   sortTables,
@@ -203,6 +205,36 @@ describe("visual grouping and display", () => {
     expect(tableStatusTone("AVAILABLE")).toBe("success");
     expect(tableStatusTone("OCCUPIED")).toBe("danger");
     expect(tableStatusTone("CLEANING")).toBe("warning");
+  });
+
+  it("schedules cleaning auto-available from started_at", () => {
+    const started = "2026-09-22T12:00:00.000Z";
+    expect(cleaningAutoAvailableAt(started)?.toISOString()).toBe(
+      "2026-09-22T12:10:00.000Z",
+    );
+    expect(cleaningAutoAvailableAt(null)).toBeNull();
+
+    const now = Date.parse("2026-09-22T12:05:00.000Z");
+    expect(
+      msUntilNextCleaningAutoAvailable(
+        [
+          table({
+            id: "c1",
+            status: "CLEANING",
+            cleaning_started_at: started,
+          }),
+          table({ id: "a1", status: "AVAILABLE" }),
+        ],
+        now,
+      ),
+    ).toBe(5 * 60_000);
+
+    expect(
+      msUntilNextCleaningAutoAvailable(
+        [table({ id: "a1", status: "AVAILABLE" })],
+        now,
+      ),
+    ).toBeNull();
   });
 });
 

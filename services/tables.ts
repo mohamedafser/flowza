@@ -22,12 +22,15 @@ import type {
   UpdateTableStatusInput,
 } from "@/lib/validations/table";
 import { writeAuditLog } from "@/services/audit";
+import { releaseExpiredCleaningTables } from "@/services/table-cleaning";
 import type { Branch } from "@/lib/context/restaurant";
 import type { Tables } from "@/types/database";
 
 export type TableSection = Tables<"table_sections">;
 export type RestaurantTable = Tables<"restaurant_tables">;
 export type { RestaurantTableRecord, TableSectionRecord, TableWithSection };
+
+export { releaseExpiredCleaningTables };
 
 export type TablesBundle = {
   branch: Branch;
@@ -60,6 +63,7 @@ function asTable(row: RestaurantTable): RestaurantTableRecord {
     capacity: row.capacity,
     status: row.status,
     sort_order: row.sort_order,
+    cleaning_started_at: row.cleaning_started_at,
   };
 }
 
@@ -255,6 +259,8 @@ export async function getTable(
 export async function getTablesBundle(branchId: string): Promise<TablesBundle> {
   const { branch } = await loadAuthorizedBranch(branchId, "tables.view");
   const supabase = await createClient();
+
+  await releaseExpiredCleaningTables(supabase, branch.id);
 
   const [tablesResult, sectionsResult] = await Promise.all([
     supabase

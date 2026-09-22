@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { AuthorizationError, requireVerifiedAuth } from "@/lib/auth/guards";
+import { AuthorizationError } from "@/lib/auth/guards";
 import {
   jsonFail,
   jsonFromAuthorizationError,
@@ -7,6 +7,7 @@ import {
   readJsonBody,
   statusForActionCode,
 } from "@/lib/api/json";
+import { startTimer } from "@/lib/api/perf";
 import {
   DASHBOARD_CUSTOMERS_PATH,
   DASHBOARD_QUEUE_PATH,
@@ -48,9 +49,8 @@ function revalidateReservationPaths() {
  * List reservations for a branch (plain JSON).
  */
 export async function GET(request: Request) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
-
     const url = new URL(request.url);
     const parsed = reservationListQuerySchema.safeParse({
       branchId: url.searchParams.get("branchId"),
@@ -71,9 +71,13 @@ export async function GET(request: Request) {
     }
 
     const { branchId, ...query } = parsed.data;
-    const bundle = await getReservationsBundle(branchId, query);
+    const bundle = await timer.measure("database", () =>
+      getReservationsBundle(branchId, query),
+    );
+    timer.log("GET /api/reservations");
     return jsonOk(bundle);
   } catch (error) {
+    timer.log("GET /api/reservations (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }
@@ -86,9 +90,8 @@ export async function GET(request: Request) {
  * Create a reservation (plain JSON + HTTP status).
  */
 export async function POST(request: Request) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
-
     const parsedBody = await readJsonBody(request);
     if (!parsedBody.ok) {
       return parsedBody.response;
@@ -103,8 +106,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await createReservation(parsed.data);
+    const result = await timer.measure("database", () =>
+      createReservation(parsed.data),
+    );
     if (!result.ok) {
+      timer.log("POST /api/reservations (error)");
       return jsonFail(
         mapMutationCode(result.code),
         result.message,
@@ -113,8 +119,10 @@ export async function POST(request: Request) {
     }
 
     revalidateReservationPaths();
+    timer.log("POST /api/reservations");
     return jsonOk({ reservation: result.reservation }, 201);
   } catch (error) {
+    timer.log("POST /api/reservations (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }

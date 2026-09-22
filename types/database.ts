@@ -556,6 +556,7 @@ export type Database = {
           capacity: number;
           status: Database["public"]["Enums"]["table_status"];
           sort_order: number;
+          cleaning_started_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -569,6 +570,7 @@ export type Database = {
           capacity?: number;
           status?: Database["public"]["Enums"]["table_status"];
           sort_order?: number;
+          cleaning_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -582,6 +584,7 @@ export type Database = {
           capacity?: number;
           status?: Database["public"]["Enums"]["table_status"];
           sort_order?: number;
+          cleaning_started_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1967,6 +1970,10 @@ export type Database = {
       allocate_reservation_code: {
         Args: { p_restaurant_id: string };
         Returns: string;
+      };
+      release_expired_cleaning_tables: {
+        Args: { p_branch_id?: string | null; p_minutes?: number };
+        Returns: number;
       };
       branch_is_open_at: {
         Args: { p_branch_id: string; p_at: string };

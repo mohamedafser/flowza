@@ -48,9 +48,18 @@ import {
   DEFAULT_DURATION_MINUTES,
   TERMINAL_RESERVATION_STATUSES,
 } from "@/lib/validations/reservation";
+import { scheduleNotificationWork } from "@/lib/notifications/service";
+import {
+  notifyReservationArrived,
+  notifyReservationCancelled,
+  notifyReservationConfirmed,
+  notifyReservationCreated,
+  notifyReservationNoShow,
+  notifyReservationSeated,
+} from "@/lib/notifications/reservations";
 import { findPotentialDuplicateCustomer } from "@/services/customers";
 import { writeAuditLog } from "@/services/audit";
-import { getBranch } from "@/services/branches";
+import { releaseExpiredCleaningTables } from "@/services/table-cleaning";
 import { createClient } from "@/lib/supabase/server";
 import type { Branch } from "@/lib/context/restaurant";
 import type { Json, Tables } from "@/types/database";
@@ -152,8 +161,13 @@ type ReservationRowWithJoins = ReservationRow & {
   table: TableJoin;
 };
 
-const RESERVATION_SELECT =
-  "*, customer:customers(id, name, phone, email), table:restaurant_tables(id, table_number, name, capacity, status, branch_id)";
+const RESERVATION_COLUMNS =
+  "id, branch_id, customer_id, reservation_code, reservation_date, start_time, end_time, duration_minutes, party_size, status, notes, special_requests, cancelled_reason, table_id, created_by, confirmed_at, arrived_at, seated_at, completed_at, cancelled_at, no_show_at, created_at, updated_at";
+
+const RESERVATION_SELECT = `${RESERVATION_COLUMNS}, customer:customers(id, name, phone, email), table:restaurant_tables(id, table_number, name, capacity, status, branch_id)`;
+
+const BRANCH_SELECT =
+  "id, organization_id, restaurant_id, name, slug, address_line_1, address_line_2, city, state, postal_code, country, phone, email, timezone, use_restaurant_timezone, is_active, created_at, updated_at";
 
 function asReservation(row: ReservationRow): ReservationRecord {
   return {
@@ -292,25 +306,41 @@ function mapRpcError(
   };
 }
 
+async function fetchBranch(branchId: string): Promise<Branch | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("branches")
+    .select(BRANCH_SELECT)
+    .eq("id", branchId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data as Branch;
+}
+
 async function loadAuthorizedBranch(
   branchId: string,
   permission: "reservations.view" | "reservations.manage",
 ) {
-  const context = await requireVerifiedAuth();
-  const branch = await getBranch(branchId);
+  // Fetch branch without nested membership (getBranch also checks membership).
+  // Then enforce active restaurant + permission once.
+  const auth = await requireVerifiedAuth();
+  const branch = await fetchBranch(branchId);
   if (!branch) {
     return null;
   }
 
-  await requirePermission(branch.restaurant_id, permission);
-
-  if (context.restaurant?.id !== branch.restaurant_id) {
+  if (auth.restaurant?.id !== branch.restaurant_id) {
     throw new AuthorizationError(
       "FORBIDDEN",
       "Branch does not belong to the active restaurant.",
     );
   }
 
+  const context = await requirePermission(branch.restaurant_id, permission);
   return { context, branch };
 }
 
@@ -318,7 +348,7 @@ async function loadAuthorizedReservation(
   reservationId: string,
   permission: "reservations.view" | "reservations.manage",
 ) {
-  const context = await requireVerifiedAuth();
+  const auth = await requireVerifiedAuth();
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("reservations")
@@ -333,17 +363,17 @@ async function loadAuthorizedReservation(
   const reservation = asReservationWithRelations(
     data as ReservationRowWithJoins,
   );
-  const branch = await getBranch(reservation.branch_id);
+  const branch = await fetchBranch(reservation.branch_id);
   if (!branch) {
     return null;
   }
 
-  await requirePermission(branch.restaurant_id, permission);
+  const context = await requirePermission(branch.restaurant_id, permission);
 
   const scope = authorizeReservationScope({
-    membershipRestaurantId: context.restaurant?.id ?? "",
+    membershipRestaurantId: auth.restaurant?.id ?? "",
     reservationRestaurantId: branch.restaurant_id,
-    currentRestaurantId: context.restaurant?.id ?? "",
+    currentRestaurantId: auth.restaurant?.id ?? "",
     reservationBranchId: reservation.branch_id,
     expectedBranchId: reservation.branch_id,
   });
@@ -366,6 +396,7 @@ async function loadTablesForBranch(
   Array<TableCandidate & { tableNumber: string; name: string | null }>
 > {
   const supabase = await createClient();
+  await releaseExpiredCleaningTables(supabase, branchId);
   const { data } = await supabase
     .from("restaurant_tables")
     .select("id, capacity, status, branch_id, table_number, name")
@@ -428,7 +459,33 @@ export async function checkReservationAvailability(
     };
   }
 
-  const context = await loadBranchOpenContext(input.branchId);
+  return evaluateReservationAvailability(input, {
+    branch: loaded.branch,
+    restaurantTimezone: loaded.context.membership.restaurant.timezone,
+  });
+}
+
+async function evaluateReservationAvailability(
+  input: AvailabilityQuery,
+  preloaded: {
+    branch: Branch;
+    restaurantTimezone: string;
+  },
+): Promise<{
+  ok: boolean;
+  issues: string[];
+  message: string | null;
+  suggestedTableIds: string[];
+}> {
+  const [context, existing, tables] = await Promise.all([
+    loadBranchOpenContext(input.branchId, {
+      branch: preloaded.branch,
+      restaurantTimezone: preloaded.restaurantTimezone,
+    }),
+    loadExistingSlots(input.branchId, input.reservationDate),
+    loadTablesForBranch(input.branchId),
+  ]);
+
   if (!context) {
     return {
       ok: false,
@@ -440,10 +497,6 @@ export async function checkReservationAvailability(
 
   const startTime = normalizeReservationTime(input.startTime);
   const endTime = resolveEndTime(startTime, input.durationMinutes);
-  const [existing, tables] = await Promise.all([
-    loadExistingSlots(input.branchId, input.reservationDate),
-    loadTablesForBranch(input.branchId),
-  ]);
 
   const result = evaluateAvailability({
     resolvedHours: resolveBranchHoursAt(context, input.reservationDate),
@@ -478,16 +531,15 @@ async function assertSlotAvailable(input: {
   partySize: number;
   tableId?: string | null;
   excludeReservationId?: string;
+  /** When set, skip a second auth/branch round-trip. */
+  authorized?: {
+    branch: Branch;
+    restaurantTimezone: string;
+  };
 }): Promise<ReservationMutationResult | null> {
-  const availability = await checkReservationAvailability({
-    branchId: input.branchId,
-    reservationDate: input.reservationDate,
-    startTime: input.startTime,
-    durationMinutes: input.durationMinutes,
-    partySize: input.partySize,
-    tableId: input.tableId,
-    excludeReservationId: input.excludeReservationId,
-  });
+  const availability = input.authorized
+    ? await evaluateReservationAvailability(input, input.authorized)
+    : await checkReservationAvailability(input);
 
   if (!availability.ok) {
     const code: ReservationMutationCode =
@@ -527,15 +579,8 @@ export const getReservationsBundle = cache(
       );
     }
 
-    const supabase = await createClient();
-    const { data: restaurant } = await supabase
-      .from("restaurants")
-      .select("timezone")
-      .eq("id", loaded.branch.restaurant_id)
-      .maybeSingle();
-
     const timezone = resolveBranchTimezone({
-      restaurantTimezone: restaurant?.timezone ?? "UTC",
+      restaurantTimezone: loaded.context.membership.restaurant.timezone,
       branchTimezone: loaded.branch.timezone,
       useRestaurantTimezone: loaded.branch.use_restaurant_timezone,
     });
@@ -566,6 +611,7 @@ export const getReservationsBundle = cache(
       dateTo = query.date;
     }
 
+    const supabase = await createClient();
     let dbQuery = supabase
       .from("reservations")
       .select(RESERVATION_SELECT, { count: "exact" })
@@ -585,14 +631,26 @@ export const getReservationsBundle = cache(
     const to = from + pageSize - 1;
     dbQuery = dbQuery.range(from, to);
 
-    const { data, error, count } = await dbQuery;
-    if (error) {
+    const [reservationsResult, tables, queuesResult] = await Promise.all([
+      dbQuery,
+      loadTablesForBranch(branchId),
+      supabase
+        .from("queues")
+        .select("id, name, status")
+        .eq("branch_id", branchId)
+        .order("name", { ascending: true }),
+    ]);
+
+    if (reservationsResult.error) {
       throw new Error(
-        safeDatabaseMessage(error, "Unable to load reservations."),
+        safeDatabaseMessage(
+          reservationsResult.error,
+          "Unable to load reservations.",
+        ),
       );
     }
 
-    let reservations = (data ?? []).map((row) =>
+    let reservations = (reservationsResult.data ?? []).map((row) =>
       asReservationWithRelations(row as ReservationRowWithJoins),
     );
 
@@ -602,20 +660,11 @@ export const getReservationsBundle = cache(
       );
     }
 
-    const [tables, queuesResult] = await Promise.all([
-      loadTablesForBranch(branchId),
-      supabase
-        .from("queues")
-        .select("id, name, status")
-        .eq("branch_id", branchId)
-        .order("name", { ascending: true }),
-    ]);
-
     const canManage = loaded.context.role
       ? canManageReservations(loaded.context.role)
       : false;
 
-    const total = count ?? reservations.length;
+    const total = reservationsResult.count ?? reservations.length;
     return {
       branch: loaded.branch,
       timezone,
@@ -663,24 +712,23 @@ export async function createReservation(
     };
   }
 
+  const customerResult = await resolveBookingCustomer(
+    loaded.branch.restaurant_id,
+    loaded.context.user.id,
+    {
+      customerId: input.customerId,
+      name: input.name,
+      phone: input.phone,
+      email: input.email,
+    },
+    "reservation",
+  );
+  if (!customerResult.ok) {
+    return customerResult;
+  }
+
   const supabase = await createClient();
-  const { data: customer, error: customerError } = await supabase
-    .from("customers")
-    .select("id, restaurant_id")
-    .eq("id", input.customerId)
-    .maybeSingle();
-
-  if (customerError || !customer) {
-    return { ok: false, code: "NOT_FOUND", message: "Customer not found." };
-  }
-
-  if (customer.restaurant_id !== loaded.branch.restaurant_id) {
-    return {
-      ok: false,
-      code: "FORBIDDEN",
-      message: "Customer does not belong to this restaurant.",
-    };
-  }
+  const customerId = customerResult.customerId;
 
   const startTime = normalizeReservationTime(input.startTime);
   const durationMinutes = input.durationMinutes ?? DEFAULT_DURATION_MINUTES;
@@ -693,6 +741,10 @@ export async function createReservation(
     durationMinutes,
     partySize: input.partySize,
     tableId: input.tableId,
+    authorized: {
+      branch: loaded.branch,
+      restaurantTimezone: loaded.context.membership.restaurant.timezone,
+    },
   });
   if (availabilityError) {
     return availabilityError;
@@ -735,14 +787,69 @@ export async function createReservation(
     };
   }
 
-  const status: ReservationStatus = input.confirm ? "CONFIRMED" : "PENDING";
+  const arrived = Boolean(input.arrived);
+  const confirm = arrived || Boolean(input.confirm);
+  const status: ReservationStatus = arrived
+    ? input.tableId
+      ? "SEATED"
+      : "ARRIVED"
+    : confirm
+      ? "CONFIRMED"
+      : "PENDING";
   const nowIso = new Date().toISOString();
+
+  if (arrived && input.tableId) {
+    const { data: table } = await supabase
+      .from("restaurant_tables")
+      .select("id, branch_id, capacity, status")
+      .eq("id", input.tableId)
+      .maybeSingle();
+
+    if (!table || table.branch_id !== input.branchId) {
+      return {
+        ok: false,
+        code: "NOT_FOUND",
+        message: "Table not found for this branch.",
+      };
+    }
+    if (table.status !== "AVAILABLE") {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: "Selected table is not available to seat the guest.",
+      };
+    }
+    if (table.capacity < input.partySize) {
+      return {
+        ok: false,
+        code: "VALIDATION",
+        message: "Selected table cannot seat this party size.",
+      };
+    }
+
+    const { data: occupied, error: tableError } = await supabase
+      .from("restaurant_tables")
+      .update({ status: "OCCUPIED" })
+      .eq("id", input.tableId)
+      .eq("branch_id", input.branchId)
+      .eq("status", "AVAILABLE")
+      .select("id")
+      .maybeSingle();
+
+    if (tableError || !occupied) {
+      return {
+        ok: false,
+        code: "CONFLICT",
+        message: "Unable to occupy the selected table.",
+      };
+    }
+  }
 
   const { data, error } = await supabase
     .from("reservations")
     .insert({
       branch_id: input.branchId,
-      customer_id: input.customerId,
+      customer_id: customerId,
       reservation_code: code,
       reservation_date: input.reservationDate,
       start_time: startTime,
@@ -754,18 +861,20 @@ export async function createReservation(
       special_requests: input.specialRequests ?? null,
       table_id: input.tableId ?? null,
       created_by: loaded.context.user.id,
-      confirmed_at: status === "CONFIRMED" ? nowIso : null,
+      confirmed_at: confirm ? nowIso : null,
+      arrived_at: arrived ? nowIso : null,
+      seated_at: status === "SEATED" ? nowIso : null,
     })
-    .select("*")
+    .select(RESERVATION_COLUMNS)
     .maybeSingle();
 
   if (error || !data) {
     return mapRpcError(error);
   }
 
-  const reservation = asReservation(data);
+  const reservation = asReservation(data as ReservationRow);
 
-  if (input.tableId) {
+  if (input.tableId && !arrived) {
     await supabase
       .from("restaurant_tables")
       .update({ status: "RESERVED" })
@@ -786,14 +895,20 @@ export async function createReservation(
       partySize: reservation.party_size,
       reservationCode: reservation.reservation_code,
       hasTable: Boolean(reservation.table_id),
+      arrived,
     },
   });
 
-  const { notifyReservationCreated, notifyReservationConfirmed } =
-    await import("@/lib/notifications/reservations");
   notifyReservationCreated(reservation.id);
-  if (status === "CONFIRMED") {
+  if (confirm) {
     notifyReservationConfirmed(reservation.id);
+  }
+  if (status === "ARRIVED") {
+    notifyReservationArrived(reservation.id);
+  }
+  if (status === "SEATED") {
+    notifyReservationArrived(reservation.id);
+    notifyReservationSeated(reservation.id);
   }
 
   return { ok: true, reservation };
@@ -843,6 +958,10 @@ export async function updateReservation(
     partySize,
     tableId,
     excludeReservationId: loaded.reservation.id,
+    authorized: {
+      branch: loaded.branch,
+      restaurantTimezone: loaded.context.membership.restaurant.timezone,
+    },
   });
   if (availabilityError) {
     return availabilityError;
@@ -883,14 +1002,14 @@ export async function updateReservation(
     })
     .eq("id", loaded.reservation.id)
     .eq("branch_id", loaded.reservation.branch_id)
-    .select("*")
+    .select(RESERVATION_COLUMNS)
     .maybeSingle();
 
   if (error || !data) {
     return mapRpcError(error);
   }
 
-  const reservation = asReservation(data);
+  const reservation = asReservation(data as ReservationRow);
 
   if (previousTableId && previousTableId !== tableId) {
     await supabase
@@ -991,17 +1110,16 @@ async function transitionReservation(
   }
 
   if (options?.notify) {
-    const notifications = await import("@/lib/notifications/reservations");
     if (options.notify === "confirmed") {
-      notifications.notifyReservationConfirmed(reservation.id);
+      notifyReservationConfirmed(reservation.id);
     } else if (options.notify === "cancelled") {
-      notifications.notifyReservationCancelled(reservation.id);
+      notifyReservationCancelled(reservation.id);
     } else if (options.notify === "arrived") {
-      notifications.notifyReservationArrived(reservation.id);
+      notifyReservationArrived(reservation.id);
     } else if (options.notify === "seated") {
-      notifications.notifyReservationSeated(reservation.id);
+      notifyReservationSeated(reservation.id);
     } else if (options.notify === "no_show") {
-      notifications.notifyReservationNoShow(reservation.id);
+      notifyReservationNoShow(reservation.id);
     }
   }
 
@@ -1067,6 +1185,10 @@ export async function assignReservationTable(
     partySize: loaded.reservation.party_size,
     tableId: input.tableId,
     excludeReservationId: loaded.reservation.id,
+    authorized: {
+      branch: loaded.branch,
+      restaurantTimezone: loaded.context.membership.restaurant.timezone,
+    },
   });
   if (availabilityError) {
     return availabilityError;
@@ -1079,7 +1201,7 @@ export async function assignReservationTable(
     .from("reservations")
     .update({ table_id: input.tableId })
     .eq("id", loaded.reservation.id)
-    .select("*")
+    .select(RESERVATION_COLUMNS)
     .maybeSingle();
 
   if (error || !data) {
@@ -1103,7 +1225,7 @@ export async function assignReservationTable(
       .in("status", ["AVAILABLE", "RESERVED"]);
   }
 
-  const reservation = asReservation(data);
+  const reservation = asReservation(data as ReservationRow);
   await writeAuditLog({
     restaurantId: loaded.branch.restaurant_id,
     userId: loaded.context.user.id,
@@ -1281,8 +1403,10 @@ export async function convertReservationToQueue(
     },
   });
 
-  const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-  await notifyQueueJoined(entry.id);
+  scheduleNotificationWork(async () => {
+    const { notifyQueueJoined } = await import("@/lib/notifications/queue");
+    await notifyQueueJoined(entry.id);
+  });
 
   return {
     ok: true,
@@ -1323,10 +1447,16 @@ function asReservationFromWithRelations(
   };
 }
 
-async function resolveWalkInCustomer(
+async function resolveBookingCustomer(
   restaurantId: string,
   userId: string,
-  input: CreateWalkInInput,
+  input: {
+    customerId?: string | null;
+    name?: string | null;
+    phone?: string | null;
+    email?: string | null;
+  },
+  source: "walk_in" | "reservation",
 ): Promise<
   | { ok: true; customerId: string }
   | { ok: false; message: string; code: ReservationMutationCode }
@@ -1407,13 +1537,24 @@ async function resolveWalkInCustomer(
     entityType: "customer",
     entityId: data.id,
     metadata: {
-      source: "walk_in",
+      source,
       hasPhone: Boolean(input.phone),
       hasEmail: Boolean(input.email),
     },
   });
 
   return { ok: true, customerId: data.id };
+}
+
+async function resolveWalkInCustomer(
+  restaurantId: string,
+  userId: string,
+  input: CreateWalkInInput,
+): Promise<
+  | { ok: true; customerId: string }
+  | { ok: false; message: string; code: ReservationMutationCode }
+> {
+  return resolveBookingCustomer(restaurantId, userId, input, "walk_in");
 }
 
 export async function createWalkIn(
@@ -1559,8 +1700,10 @@ export async function createWalkIn(
     },
   });
 
-  const { notifyQueueJoined } = await import("@/lib/notifications/queue");
-  await notifyQueueJoined(entry.id);
+  scheduleNotificationWork(async () => {
+    const { notifyQueueJoined } = await import("@/lib/notifications/queue");
+    await notifyQueueJoined(entry.id);
+  });
 
   return {
     ok: true,

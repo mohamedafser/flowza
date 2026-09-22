@@ -44,6 +44,14 @@ describe("table schema and RLS", () => {
     );
   });
 
+  it("auto-releases CLEANING tables to AVAILABLE after 10 minutes", () => {
+    const sql = readMigration("table_cleaning_auto_available");
+    expect(sql).toContain("cleaning_started_at");
+    expect(sql).toContain("release_expired_cleaning_tables");
+    expect(sql).toContain("restaurant_tables_track_cleaning");
+    expect(sql).toContain("make_interval(mins =>");
+  });
+
   it("seeds demo tables without customer PII", () => {
     const seedPath = resolve(root, "supabase/seed.sql");
     expect(existsSync(seedPath)).toBe(true);

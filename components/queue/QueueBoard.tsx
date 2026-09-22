@@ -206,14 +206,6 @@ export function QueueBoard({
     return busyKey !== null && keys.includes(busyKey);
   }
 
-  function refresh() {
-    refreshController.current?.request();
-  }
-
-  function handleQueueChange(queueId: string) {
-    router.push(`${DASHBOARD_QUEUE_PATH}?queueId=${queueId}`);
-  }
-
   async function handleCreate(values: QueueFormValues) {
     const result = await createQueueRequest({
       ...values,
@@ -228,7 +220,7 @@ export function QueueBoard({
     if (result.data?.queue.id) {
       router.push(`${DASHBOARD_QUEUE_PATH}?queueId=${result.data.queue.id}`);
     } else {
-      refresh();
+      await loadBundle();
     }
   }
 
@@ -244,7 +236,7 @@ export function QueueBoard({
     }
     toast.success("Queue settings saved.");
     setSettingsOpen(false);
-    refresh();
+    await loadBundle();
   }
 
   async function handleStatus(status: "ACTIVE" | "PAUSED" | "CLOSED") {
@@ -259,7 +251,7 @@ export function QueueBoard({
     }
     toast.success(`Queue ${queueStatusLabel(status).toLowerCase()}.`);
     setConfirm({ kind: null });
-    refresh();
+    await loadBundle();
   }
 
   async function handleAdd(values: AddCustomerFormValues) {
@@ -294,7 +286,7 @@ export function QueueBoard({
     }
     toast.success(`Added ${result.data?.entry.token ?? "guest"} to the queue.`);
     setAddOpen(false);
-    refresh();
+    await loadBundle();
   }
 
   async function handleCallNext() {
@@ -305,7 +297,7 @@ export function QueueBoard({
       return;
     }
     toast.success(`Called ${result.data?.entry.token ?? "next guest"}.`);
-    refresh();
+    await loadBundle();
   }
 
   async function handleCall(entry: QueueEntryView) {
@@ -316,7 +308,7 @@ export function QueueBoard({
     }
     toast.success(`Called ${entry.token}.`);
     setDetails(null);
-    refresh();
+    await loadBundle();
   }
 
   async function handleSkip(entry: QueueEntryView) {
@@ -328,7 +320,7 @@ export function QueueBoard({
     toast.success(`Skipped ${entry.token}.`);
     setConfirm({ kind: null });
     setDetails(null);
-    refresh();
+    await loadBundle();
   }
 
   async function handleCancel(entry: QueueEntryView) {
@@ -340,7 +332,7 @@ export function QueueBoard({
     toast.success(`Cancelled ${entry.token}.`);
     setConfirm({ kind: null });
     setDetails(null);
-    refresh();
+    await loadBundle();
   }
 
   async function handleNoShow(entry: QueueEntryView) {
@@ -352,7 +344,7 @@ export function QueueBoard({
     toast.success(`Marked ${entry.token} as no-show.`);
     setConfirm({ kind: null });
     setDetails(null);
-    refresh();
+    await loadBundle();
   }
 
   async function handleSeat(tableId: string) {
@@ -371,7 +363,7 @@ export function QueueBoard({
     }));
     setSeatEntry(null);
     setDetails(null);
-    refresh();
+    await loadBundle();
   }
 
   async function handleComplete(entry: QueueEntryView) {
@@ -391,7 +383,11 @@ export function QueueBoard({
       }));
     }
     setDetails(null);
-    refresh();
+    await loadBundle();
+  }
+
+  function handleQueueChange(queueId: string) {
+    router.push(`${DASHBOARD_QUEUE_PATH}?queueId=${queueId}`);
   }
 
   const headerActions = (
@@ -407,7 +403,7 @@ export function QueueBoard({
             size="icon-sm"
             className="sm:hidden"
             disabled={pending}
-            onClick={() => refresh()}
+            onClick={() => run("refresh", () => loadBundle())}
             aria-label="Refresh queue"
             aria-busy={isBusy("refresh")}
           >
@@ -421,7 +417,7 @@ export function QueueBoard({
             variant="outline"
             className="hidden sm:inline-flex"
             disabled={pending}
-            onClick={() => refresh()}
+            onClick={() => run("refresh", () => loadBundle())}
             aria-busy={isBusy("refresh")}
           >
             {isBusy("refresh") ? (
@@ -553,6 +549,22 @@ export function QueueBoard({
         breadcrumbs={QUEUE_BREADCRUMBS}
         actions={headerActions}
       />
+
+      <div className="relative">
+        {pending ? (
+          <div
+            className="bg-background/60 absolute inset-0 z-10 flex items-start justify-center pt-20 backdrop-blur-[1px]"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+            aria-label="Loading queue"
+          >
+            <div className="bg-card text-muted-foreground border-border flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm shadow-sm">
+              <Loader2 className="size-4 animate-spin" />
+              Updating…
+            </div>
+          </div>
+        ) : null}
 
       {bundle.queues.length > 1 ? (
         <div className="mb-4 w-full max-w-md">
@@ -832,6 +844,7 @@ export function QueueBoard({
           )}
         </>
       )}
+      </div>
 
       <AddCustomerToQueueDialog
         open={addOpen}

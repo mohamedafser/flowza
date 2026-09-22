@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { AuthorizationError, requireVerifiedAuth } from "@/lib/auth/guards";
+import { AuthorizationError } from "@/lib/auth/guards";
 import {
   jsonFail,
   jsonFromAuthorizationError,
@@ -7,6 +7,7 @@ import {
   readJsonBody,
   statusForActionCode,
 } from "@/lib/api/json";
+import { startTimer } from "@/lib/api/perf";
 import {
   DASHBOARD_CUSTOMERS_PATH,
   DASHBOARD_QUEUE_PATH,
@@ -50,15 +51,19 @@ function revalidateReservationPaths() {
  * GET /api/reservations/[reservationId]
  */
 export async function GET(_request: Request, context: RouteContext) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
     const { reservationId } = await context.params;
-    const reservation = await getReservation(reservationId);
+    const reservation = await timer.measure("database", () =>
+      getReservation(reservationId),
+    );
     if (!reservation) {
       return jsonFail("NOT_FOUND", "Reservation not found.", 404);
     }
+    timer.log("GET /api/reservations/[id]");
     return jsonOk({ reservation });
   } catch (error) {
+    timer.log("GET /api/reservations/[id] (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }
@@ -70,8 +75,8 @@ export async function GET(_request: Request, context: RouteContext) {
  * PATCH /api/reservations/[reservationId]
  */
 export async function PATCH(request: Request, context: RouteContext) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
     const { reservationId } = await context.params;
 
     const parsedBody = await readJsonBody(request);
@@ -91,8 +96,11 @@ export async function PATCH(request: Request, context: RouteContext) {
       );
     }
 
-    const result = await updateReservation(parsed.data);
+    const result = await timer.measure("database", () =>
+      updateReservation(parsed.data),
+    );
     if (!result.ok) {
+      timer.log("PATCH /api/reservations/[id] (error)");
       return jsonFail(
         mapMutationCode(result.code),
         result.message,
@@ -101,8 +109,10 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     revalidateReservationPaths();
+    timer.log("PATCH /api/reservations/[id]");
     return jsonOk({ reservation: result.reservation });
   } catch (error) {
+    timer.log("PATCH /api/reservations/[id] (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }

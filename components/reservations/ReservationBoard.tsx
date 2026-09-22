@@ -40,6 +40,7 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { SearchInput } from "@/components/common/SearchInput";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { ReservationFormDialog } from "@/components/reservations/ReservationFormDialog";
+import { TableStatusPicker } from "@/components/reservations/TableStatusPicker";
 import { WalkInDialog } from "@/components/reservations/WalkInDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -177,7 +178,10 @@ export function ReservationBoard({
     await runMutation(async () => {
       const result = await createReservationRequest({
         branchId: bundle.branch.id,
-        customerId: values.customerId,
+        customerId: values.customerId || undefined,
+        name: values.name || undefined,
+        phone: values.phone || undefined,
+        email: values.email || undefined,
         reservationDate: values.reservationDate,
         startTime: values.startTime,
         partySize: values.partySize,
@@ -188,6 +192,7 @@ export function ReservationBoard({
           ? values.specialRequests
           : null,
         confirm: values.confirm ?? false,
+        arrived: values.arrived ?? false,
       });
       if (!result.ok) return result;
       setFormOpen(false);
@@ -597,20 +602,13 @@ export function ReservationBoard({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="tableSelect">Table</Label>
-            <Select
-              id="tableSelect"
+            <Label>Table</Label>
+            <TableStatusPicker
+              tables={tablesForSelect}
               value={selectedTableId}
-              onChange={(event) => setSelectedTableId(event.target.value)}
-              placeholder="Select a table"
-            >
-              <option value="">Select a table</option>
-              {tablesForSelect.map((table) => (
-                <option key={table.id} value={table.id}>
-                  {table.label} · seats {table.capacity} · {table.status}
-                </option>
-              ))}
-            </Select>
+              onChange={setSelectedTableId}
+              disabled={busy}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setTableDialog(null)}>

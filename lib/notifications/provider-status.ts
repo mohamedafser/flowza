@@ -45,7 +45,7 @@ export function getNotificationProviderStatus(): NotificationProviderStatus {
     whatsapp: {
       configured: whatsappOk,
       label: whatsappOk
-        ? "WhatsApp Cloud API configured — messages send when WhatsApp is enabled and the guest has a phone number."
+        ? "WhatsApp Cloud API configured — enable WhatsApp below. Use WHATSAPP_TEMPLATE_NAME (+ BODY_PARAM_COUNT) for Meta test/production templates."
         : "Not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.",
     },
     sms: {

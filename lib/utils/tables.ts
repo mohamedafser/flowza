@@ -24,6 +24,7 @@ export type RestaurantTableRecord = {
   capacity: number;
   status: TableStatus;
   sort_order: number;
+  cleaning_started_at?: string | null;
 };
 
 export type TableWithSection = RestaurantTableRecord & {
@@ -116,6 +117,41 @@ export function isValidTableStatusTransition(
   to: TableStatus,
 ): boolean {
   return isTableStatus(from) && isTableStatus(to);
+}
+
+/** Minutes a table stays CLEANING before auto-returning to AVAILABLE. */
+export const CLEANING_AUTO_AVAILABLE_MINUTES = 10;
+
+export function cleaningAutoAvailableAt(
+  cleaningStartedAt: string | null | undefined,
+  minutes = CLEANING_AUTO_AVAILABLE_MINUTES,
+): Date | null {
+  if (!cleaningStartedAt) return null;
+  const started = new Date(cleaningStartedAt);
+  if (Number.isNaN(started.getTime())) return null;
+  return new Date(started.getTime() + minutes * 60_000);
+}
+
+/** Earliest ms until a CLEANING table should auto-become AVAILABLE (null if none). */
+export function msUntilNextCleaningAutoAvailable(
+  tables: readonly Pick<
+    RestaurantTableRecord,
+    "status" | "cleaning_started_at"
+  >[],
+  now = Date.now(),
+  minutes = CLEANING_AUTO_AVAILABLE_MINUTES,
+): number | null {
+  let soonest: number | null = null;
+  for (const table of tables) {
+    if (table.status !== "CLEANING") continue;
+    const at = cleaningAutoAvailableAt(table.cleaning_started_at, minutes);
+    if (!at) continue;
+    const remaining = at.getTime() - now;
+    if (soonest === null || remaining < soonest) {
+      soonest = remaining;
+    }
+  }
+  return soonest;
 }
 
 export function deriveTableStatistics(

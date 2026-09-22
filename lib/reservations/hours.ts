@@ -18,6 +18,7 @@ import {
 } from "@/services/hours";
 import { getBranch } from "@/services/branches";
 import { createClient } from "@/lib/supabase/server";
+import type { Branch } from "@/lib/context/restaurant";
 
 export type BranchOpenContext = {
   branchId: string;
@@ -31,25 +32,33 @@ export type BranchOpenContext = {
 
 export async function loadBranchOpenContext(
   branchId: string,
+  preloaded?: {
+    branch?: Branch;
+    restaurantTimezone?: string;
+  },
 ): Promise<BranchOpenContext | null> {
-  const branch = await getBranch(branchId);
+  const branch = preloaded?.branch ?? (await getBranch(branchId));
   if (!branch) {
     return null;
   }
 
-  const supabase = await createClient();
-  const { data: restaurant } = await supabase
-    .from("restaurants")
-    .select("id, timezone")
-    .eq("id", branch.restaurant_id)
-    .maybeSingle();
+  let restaurantTimezone = preloaded?.restaurantTimezone;
+  if (!restaurantTimezone) {
+    const supabase = await createClient();
+    const { data: restaurant } = await supabase
+      .from("restaurants")
+      .select("id, timezone")
+      .eq("id", branch.restaurant_id)
+      .maybeSingle();
 
-  if (!restaurant) {
-    return null;
+    if (!restaurant) {
+      return null;
+    }
+    restaurantTimezone = restaurant.timezone;
   }
 
   const timezone = resolveBranchTimezone({
-    restaurantTimezone: restaurant.timezone,
+    restaurantTimezone,
     branchTimezone: branch.timezone,
     useRestaurantTimezone: branch.use_restaurant_timezone,
   });

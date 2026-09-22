@@ -54,6 +54,7 @@ import { useTableRealtime } from "@/hooks/realtime/use-table-realtime";
 import {
   deriveTableStatistics,
   groupTablesBySection,
+  msUntilNextCleaningAutoAvailable,
   queryTables,
   tableDisplayName,
   tableStatusLabel,
@@ -184,6 +185,16 @@ export function TableBoard({
       refreshController.current?.request();
     },
   });
+
+  useEffect(() => {
+    const remaining = msUntilNextCleaningAutoAvailable(tables);
+    if (remaining === null) return;
+    const delay = Math.max(remaining + 250, 0);
+    const timer = window.setTimeout(() => {
+      refreshController.current?.request();
+    }, Math.min(delay, 2_147_000_000));
+    return () => window.clearTimeout(timer);
+  }, [tables]);
 
   const displayTables = useMemo(
     () =>

@@ -21,6 +21,7 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchInput } from "@/components/common/SearchInput";
+import { TableStatusPicker } from "@/components/reservations/TableStatusPicker";
 import {
   formatPhoneDisplay,
   isValidPhoneInput,
@@ -134,15 +135,18 @@ function WalkInForm({
 
     let cancelled = false;
     const trimmed = query.trim();
-    const timer = window.setTimeout(() => {
-      setSearching(true);
-      void searchQueueCustomersRequest(trimmed).then((result) => {
-        if (cancelled) return;
-        setSearching(false);
-        setHasSearched(true);
-        setResults(result.ok ? (result.data?.customers ?? []) : []);
-      });
-    }, trimmed ? 250 : 0);
+    const timer = window.setTimeout(
+      () => {
+        setSearching(true);
+        void searchQueueCustomersRequest(trimmed).then((result) => {
+          if (cancelled) return;
+          setSearching(false);
+          setHasSearched(true);
+          setResults(result.ok ? (result.data?.customers ?? []) : []);
+        });
+      },
+      trimmed ? 250 : 0,
+    );
 
     return () => {
       cancelled = true;
@@ -518,25 +522,26 @@ function WalkInForm({
           </div>
         ) : (
           <div className="space-y-2">
-            <Label htmlFor="tableId">Table</Label>
-            <Select
-              id="tableId"
-              placeholder="Select a table"
+            <Label>Table</Label>
+            <TableStatusPicker
+              tables={tables.filter(
+                (table) =>
+                  table.status === "AVAILABLE" || table.status === "RESERVED",
+              )}
+              value={form.watch("tableId") ?? ""}
+              onChange={(tableId) =>
+                form.setValue("tableId", tableId, {
+                  shouldValidate: true,
+                  shouldDirty: true,
+                })
+              }
               disabled={submitting}
-              {...form.register("tableId")}
-            >
-              <option value="">Select a table</option>
-              {tables
-                .filter(
-                  (table) =>
-                    table.status === "AVAILABLE" || table.status === "RESERVED",
-                )
-                .map((table) => (
-                  <option key={table.id} value={table.id}>
-                    {table.label} · seats {table.capacity}
-                  </option>
-                ))}
-            </Select>
+            />
+            {form.formState.errors.tableId ? (
+              <p className="text-destructive text-xs">
+                {form.formState.errors.tableId.message}
+              </p>
+            ) : null}
           </div>
         )}
 

@@ -113,18 +113,43 @@ const optionalUuid = z.preprocess(
   uuidSchema.nullable(),
 );
 
-export const createReservationSchema = z.object({
-  branchId: uuidSchema,
-  customerId: uuidSchema,
-  reservationDate: dateSchema,
-  startTime: timeSchema,
-  partySize: partySizeSchema,
-  durationMinutes: durationSchema.default(DEFAULT_DURATION_MINUTES),
-  tableId: optionalUuid.optional(),
-  notes: optionalNotes,
-  specialRequests: optionalSpecialRequests,
-  confirm: z.boolean().optional().default(false),
-});
+export const createReservationSchema = z
+  .object({
+    branchId: uuidSchema,
+    customerId: z.preprocess(
+      (value) => (value === "" || value == null ? undefined : value),
+      uuidSchema.optional(),
+    ),
+    name: customerNameSchema.optional(),
+    phone: createCustomerSchema.shape.phone.optional(),
+    email: createCustomerSchema.shape.email.optional(),
+    reservationDate: dateSchema,
+    startTime: timeSchema,
+    partySize: partySizeSchema,
+    durationMinutes: durationSchema.default(DEFAULT_DURATION_MINUTES),
+    tableId: optionalUuid.optional(),
+    notes: optionalNotes,
+    specialRequests: optionalSpecialRequests,
+    confirm: z.boolean().optional().default(false),
+    arrived: z.boolean().optional().default(false),
+  })
+  .superRefine((value, ctx) => {
+    if (value.customerId) return;
+    if (!value.name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Customer name is required.",
+        path: ["name"],
+      });
+    }
+    if (!value.phone?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Phone number is required.",
+        path: ["phone"],
+      });
+    }
+  });
 
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 
@@ -279,17 +304,47 @@ export function firstZodMessage(
   return issue.message || fallback;
 }
 
-export const reservationFormSchema = z.object({
-  customerId: z.string().uuid("Select a customer"),
-  reservationDate: dateSchema,
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, "Enter a valid time"),
-  partySize: z.coerce.number().int().min(MIN_PARTY_SIZE).max(MAX_PARTY_SIZE),
-  durationMinutes: durationSchema,
-  tableId: z.string().uuid().nullable().optional().or(z.literal("")),
-  notes: z.string().max(2000).optional(),
-  specialRequests: z.string().max(2000).optional(),
-  confirm: z.boolean().optional(),
-});
+export const reservationFormSchema = z
+  .object({
+    customerId: z.string().uuid().optional().or(z.literal("")),
+    name: z.string().trim().max(120).optional(),
+    phone: z.string().trim().max(30).optional(),
+    email: z.string().trim().max(254).optional(),
+    reservationDate: dateSchema,
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "Enter a valid time"),
+    partySize: z.coerce.number().int().min(MIN_PARTY_SIZE).max(MAX_PARTY_SIZE),
+    durationMinutes: durationSchema,
+    tableId: z.string().uuid().nullable().optional().or(z.literal("")),
+    notes: z.string().max(2000).optional(),
+    specialRequests: z.string().max(2000).optional(),
+    confirm: z.boolean().optional(),
+    arrived: z.boolean().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.customerId && z.string().uuid().safeParse(value.customerId).success) {
+      return;
+    }
+    if (!value.name?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Name is required.",
+        path: ["name"],
+      });
+    }
+    if (!value.phone?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Phone number is required.",
+        path: ["phone"],
+      });
+    } else if (!isValidPhoneInput(value.phone)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Enter a valid phone number.",
+        path: ["phone"],
+      });
+    }
+  });
 
 export type ReservationFormValues = z.infer<typeof reservationFormSchema>;
 

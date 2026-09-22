@@ -67,7 +67,7 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
         body: "{{restaurantName}}: You're in line. Token {{token}}. Party {{partySize}}. ETA {{estimatedWait}}.",
       },
       WHATSAPP: {
-        body: "Hi {{customerName}}, you're in the queue at {{restaurantName}}. Token: {{token}}. Party size: {{partySize}}. Estimated wait: {{estimatedWait}}.",
+        body: "{{customerName}}|||You are in the queue at {{restaurantName}} ({{branchName}}).|||Token {{token}} · Party {{partySize}} · Wait {{estimatedWait}} · Position {{position}}",
       },
     },
   },
@@ -86,7 +86,7 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
         body: "{{restaurantName}}: Your table is ready. Token {{token}}. Please approach staff now.",
       },
       WHATSAPP: {
-        body: "Your table is ready at {{restaurantName}}. Token: {{token}}. Please proceed to the restaurant staff.",
+        body: "{{customerName}}|||Your table is ready at {{restaurantName}}. Please proceed to staff now.|||Token {{token}}",
       },
     },
   },
@@ -100,6 +100,11 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
       "",
       "Please proceed to the restaurant staff.",
     ].join("\n"),
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Your table is ready at {{restaurantName}}. Please proceed to staff now.|||Token {{token}}",
+      },
+    },
   },
   QUEUE_REMINDER: {
     title: "You're almost up",
@@ -117,22 +122,40 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
       SMS: {
         body: "{{restaurantName}}: You're almost up. Token {{token}}. Position {{position}}.",
       },
+      WHATSAPP: {
+        body: "{{customerName}}|||Your turn at {{restaurantName}} is coming up soon.|||Token {{token}} · Position {{position}} · Wait {{estimatedWait}}",
+      },
     },
   },
   QUEUE_SEATED: {
     title: "Enjoy your visit",
     subject: "You're seated — {{restaurantName}}",
     body: "Hi {{customerName}}, you've been seated at {{restaurantName}}. Token: {{token}}. Enjoy!",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||You've been seated at {{restaurantName}}. Enjoy your visit!|||Token {{token}}",
+      },
+    },
   },
   QUEUE_CANCELLED: {
     title: "Queue cancelled",
     subject: "Queue cancelled — {{restaurantName}}",
     body: "Hi {{customerName}}, your queue entry (token {{token}}) at {{restaurantName}} has been cancelled.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Your queue entry at {{restaurantName}} has been cancelled.|||Token {{token}}",
+      },
+    },
   },
   QUEUE_NO_SHOW: {
     title: "Marked as no-show",
     subject: "Missed call — {{restaurantName}}",
     body: "Hi {{customerName}}, your queue entry (token {{token}}) at {{restaurantName}} was marked as no-show.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Your queue entry at {{restaurantName}} was marked as no-show.|||Token {{token}}",
+      },
+    },
   },
   STAFF_QUEUE_JOINED: {
     title: "New guest in queue",
@@ -175,6 +198,9 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
       SMS: {
         body: "{{restaurantName}}: Reservation {{reservationCode}} on {{reservationDate}} at {{reservationTime}}. Party {{partySize}}.",
       },
+      WHATSAPP: {
+        body: "{{customerName}}|||Your reservation at {{restaurantName}} is recorded.|||Code {{reservationCode}} · {{reservationDate}} {{reservationTime}} · Party {{partySize}}",
+      },
     },
   },
   RESERVATION_CONFIRMED: {
@@ -195,32 +221,60 @@ const TEMPLATES: Partial<Record<NotificationType, TemplateDefinition>> = {
       SMS: {
         body: "{{restaurantName}}: Reservation {{reservationCode}} confirmed for {{reservationDate}} {{reservationTime}}.",
       },
+      WHATSAPP: {
+        body: "{{customerName}}|||Your reservation at {{restaurantName}} is confirmed.|||Code {{reservationCode}} · {{reservationDate}} {{reservationTime}} · Table {{tableName}}",
+      },
     },
   },
   RESERVATION_REMINDER: {
     title: "Reservation reminder",
     subject: "Reminder {{reservationCode}} — {{restaurantName}}",
     body: "Hi {{customerName}}, reminder: reservation {{reservationCode}} at {{restaurantName}} on {{reservationDate}} at {{reservationTime}}.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Reminder for your reservation at {{restaurantName}}.|||Code {{reservationCode}} · {{reservationDate}} {{reservationTime}}",
+      },
+    },
   },
   RESERVATION_CANCELLED: {
     title: "Reservation cancelled",
     subject: "Cancelled {{reservationCode}} — {{restaurantName}}",
     body: "Hi {{customerName}}, your reservation {{reservationCode}} at {{restaurantName}} has been cancelled.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Your reservation at {{restaurantName}} has been cancelled.|||Code {{reservationCode}}",
+      },
+    },
   },
   RESERVATION_ARRIVED: {
     title: "Checked in",
     subject: "Checked in — {{restaurantName}}",
     body: "Hi {{customerName}}, you've been checked in for reservation {{reservationCode}} at {{restaurantName}}.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||You've been checked in at {{restaurantName}}.|||Code {{reservationCode}}",
+      },
+    },
   },
   RESERVATION_SEATED: {
     title: "You're seated",
     subject: "Seated — {{restaurantName}}",
     body: "Hi {{customerName}}, you've been seated at {{restaurantName}} ({{tableName}}). Enjoy!",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||You've been seated at {{restaurantName}}. Enjoy!|||Table {{tableName}} · Code {{reservationCode}}",
+      },
+    },
   },
   RESERVATION_NO_SHOW: {
     title: "Reservation marked no-show",
     subject: "No-show — {{restaurantName}}",
     body: "Hi {{customerName}}, reservation {{reservationCode}} at {{restaurantName}} was marked as no-show.",
+    channels: {
+      WHATSAPP: {
+        body: "{{customerName}}|||Your reservation at {{restaurantName}} was marked as no-show.|||Code {{reservationCode}}",
+      },
+    },
   },
   STAFF_RESERVATION_CREATED: {
     title: "New reservation",

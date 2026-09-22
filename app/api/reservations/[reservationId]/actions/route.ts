@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { AuthorizationError, requireVerifiedAuth } from "@/lib/auth/guards";
+import { AuthorizationError } from "@/lib/auth/guards";
 import {
   jsonFail,
   jsonFromAuthorizationError,
@@ -8,6 +8,7 @@ import {
   readJsonBody,
   statusForActionCode,
 } from "@/lib/api/json";
+import { startTimer } from "@/lib/api/perf";
 import {
   DASHBOARD_CUSTOMERS_PATH,
   DASHBOARD_QUEUE_PATH,
@@ -78,8 +79,8 @@ function revalidateReservationPaths() {
  * Body: { action: "confirm" | "cancel" | "arrive" | ... }
  */
 export async function POST(request: Request, context: RouteContext) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
     const { reservationId } = await context.params;
 
     const parsedBody = await readJsonBody(request);
@@ -101,41 +102,58 @@ export async function POST(request: Request, context: RouteContext) {
 
     switch (body.action) {
       case "confirm":
-        result = await confirmReservation(reservationId);
+        result = await timer.measure("database", () =>
+          confirmReservation(reservationId),
+        );
         break;
       case "cancel":
-        result = await cancelReservation({
-          reservationId,
-          reason: body.reason ?? null,
-        });
+        result = await timer.measure("database", () =>
+          cancelReservation({
+            reservationId,
+            reason: body.reason ?? null,
+          }),
+        );
         break;
       case "arrive":
-        result = await markReservationArrived(reservationId);
+        result = await timer.measure("database", () =>
+          markReservationArrived(reservationId),
+        );
         break;
       case "assign_table":
-        result = await assignReservationTable({
-          reservationId,
-          tableId: body.tableId,
-        });
+        result = await timer.measure("database", () =>
+          assignReservationTable({
+            reservationId,
+            tableId: body.tableId,
+          }),
+        );
         break;
       case "seat":
-        result = await seatReservation({
-          reservationId,
-          tableId: body.tableId,
-        });
+        result = await timer.measure("database", () =>
+          seatReservation({
+            reservationId,
+            tableId: body.tableId,
+          }),
+        );
         break;
       case "complete":
-        result = await completeReservation(reservationId);
+        result = await timer.measure("database", () =>
+          completeReservation(reservationId),
+        );
         break;
       case "no_show":
-        result = await markReservationNoShow(reservationId);
+        result = await timer.measure("database", () =>
+          markReservationNoShow(reservationId),
+        );
         break;
       case "convert_to_queue": {
-        const converted = await convertReservationToQueue({
-          reservationId,
-          queueId: body.queueId,
-        });
+        const converted = await timer.measure("database", () =>
+          convertReservationToQueue({
+            reservationId,
+            queueId: body.queueId,
+          }),
+        );
         if (!converted.ok) {
+          timer.log("POST /api/reservations/actions (error)");
           return jsonFail(
             mapMutationCode(converted.code),
             converted.message,
@@ -143,6 +161,7 @@ export async function POST(request: Request, context: RouteContext) {
           );
         }
         revalidateReservationPaths();
+        timer.log("POST /api/reservations/actions");
         return jsonOk({
           reservation: converted.reservation,
           entry: converted.entry,
@@ -156,6 +175,7 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     if (!result.ok) {
+      timer.log("POST /api/reservations/actions (error)");
       return jsonFail(
         mapMutationCode(result.code),
         result.message,
@@ -164,8 +184,10 @@ export async function POST(request: Request, context: RouteContext) {
     }
 
     revalidateReservationPaths();
+    timer.log("POST /api/reservations/actions");
     return jsonOk({ reservation: result.reservation });
   } catch (error) {
+    timer.log("POST /api/reservations/actions (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }

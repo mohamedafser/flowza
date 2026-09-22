@@ -45,6 +45,23 @@ describe("reservation validation", () => {
     }
   });
 
+  it("accepts arrived flag on create", () => {
+    const parsed = createReservationSchema.safeParse({
+      branchId: "11111111-1111-4111-8111-111111111111",
+      customerId: "22222222-2222-4222-8222-222222222222",
+      reservationDate: "2026-09-20",
+      startTime: "19:00",
+      partySize: 4,
+      durationMinutes: 90,
+      tableId: "33333333-3333-4333-8333-333333333333",
+      arrived: true,
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.arrived).toBe(true);
+    }
+  });
+
   it("rejects past-looking invalid party sizes and missing ids", () => {
     const parsed = createReservationSchema.safeParse({
       branchId: "not-a-uuid",

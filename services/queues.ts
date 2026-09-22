@@ -43,6 +43,7 @@ import type {
 import { scheduleNotificationWork } from "@/lib/notifications/service";
 import { findPotentialDuplicateCustomer } from "@/services/customers";
 import { writeAuditLog } from "@/services/audit";
+import { releaseExpiredCleaningTables } from "@/services/table-cleaning";
 import type { Branch } from "@/lib/context/restaurant";
 import type { RestaurantSettings } from "@/services/settings";
 import type { RestaurantTableRecord } from "@/lib/utils/tables";
@@ -142,7 +143,7 @@ const QUEUE_SELECT =
   "id, organization_id, branch_id, name, status, prefix, current_number, starting_number, estimated_service_minutes, created_at, updated_at";
 
 const TABLE_SELECT =
-  "id, branch_id, section_id, table_number, name, capacity, status, sort_order";
+  "id, branch_id, section_id, table_number, name, capacity, status, sort_order, cleaning_started_at";
 
 const SETTINGS_SELECT =
   "default_queue_name, token_prefix, starting_token_number, default_service_minutes, max_queue_capacity, queue_enabled, allow_walk_ins, allow_manual_entry, date_format, time_format";
@@ -230,6 +231,7 @@ function asTable(row: Tables<"restaurant_tables">): RestaurantTableRecord {
     capacity: row.capacity,
     status: row.status,
     sort_order: row.sort_order,
+    cleaning_started_at: row.cleaning_started_at,
   };
 }
 
@@ -425,6 +427,8 @@ export const getQueueBundle = cache(
     const businessDate = businessDateForTimezone(new Date(), timezone);
     const supabase = await createClient();
     const knownQueueId = preferredQueueId?.trim() || null;
+
+    await releaseExpiredCleaningTables(supabase, branch.id);
 
     const [queuesResult, settingsResult, tablesResult, knownEntriesResult] =
       await Promise.all([

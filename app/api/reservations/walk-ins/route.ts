@@ -1,5 +1,5 @@
 import { revalidatePath } from "next/cache";
-import { AuthorizationError, requireVerifiedAuth } from "@/lib/auth/guards";
+import { AuthorizationError } from "@/lib/auth/guards";
 import {
   jsonFail,
   jsonFromAuthorizationError,
@@ -7,6 +7,7 @@ import {
   readJsonBody,
   statusForActionCode,
 } from "@/lib/api/json";
+import { startTimer } from "@/lib/api/perf";
 import {
   DASHBOARD_CUSTOMERS_PATH,
   DASHBOARD_QUEUE_PATH,
@@ -37,9 +38,8 @@ function mapMutationCode(code: ReservationMutationCode): ActionErrorCode {
  * Create a walk-in (queue or direct seat). Plain JSON.
  */
 export async function POST(request: Request) {
+  const timer = startTimer();
   try {
-    await requireVerifiedAuth();
-
     const parsedBody = await readJsonBody(request);
     if (!parsedBody.ok) {
       return parsedBody.response;
@@ -54,8 +54,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await createWalkIn(parsed.data);
+    const result = await timer.measure("database", () =>
+      createWalkIn(parsed.data),
+    );
     if (!result.ok) {
+      timer.log("POST /api/reservations/walk-ins (error)");
       return jsonFail(
         mapMutationCode(result.code),
         result.message,
@@ -68,6 +71,8 @@ export async function POST(request: Request) {
     revalidatePath(DASHBOARD_TABLES_PATH);
     revalidatePath(DASHBOARD_CUSTOMERS_PATH);
     revalidatePath("/", "layout");
+
+    timer.log("POST /api/reservations/walk-ins");
 
     if (result.mode === "queue") {
       return jsonOk(
@@ -89,6 +94,7 @@ export async function POST(request: Request) {
       201,
     );
   } catch (error) {
+    timer.log("POST /api/reservations/walk-ins (error)");
     if (error instanceof AuthorizationError) {
       return jsonFromAuthorizationError(error);
     }
